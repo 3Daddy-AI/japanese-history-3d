@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日本の歴史 3Dシミュレーション</title>
+<style>
+  :root{
+    --panel-bg: rgba(20,18,24,.82);
+    --accent:#e8b84b;
+    --text:#f2ede2;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;overflow:hidden;background:#000;
+    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;color:var(--text)}
+  #app{position:fixed;inset:0}
+  canvas{display:block}
+
+  #title{position:fixed;top:14px;left:18px;z-index:10;pointer-events:none;
+    text-shadow:0 2px 8px rgba(0,0,0,.7)}
+  #title h1{font-size:20px;font-weight:700;letter-spacing:.06em}
+  #title p{font-size:11px;opacity:.85;margin-top:2px}
+
+  #eraBanner{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:10;
+    text-align:center;pointer-events:none;text-shadow:0 2px 10px rgba(0,0,0,.8)}
+  #eraBanner .era-name{font-size:34px;font-weight:800;letter-spacing:.15em;color:var(--accent)}
+  #eraBanner .era-years{font-size:13px;opacity:.9;margin-top:2px}
+  #eraBanner .era-year-now{font-size:15px;margin-top:2px;font-weight:700}
+
+  #info{position:fixed;top:70px;right:14px;width:320px;max-height:calc(100% - 200px);
+    overflow-y:auto;background:var(--panel-bg);border:1px solid rgba(232,184,75,.35);
+    border-radius:10px;padding:14px 16px;z-index:10;backdrop-filter:blur(6px);font-size:12.5px;line-height:1.65}
+  #info h2{font-size:15px;color:var(--accent);margin-bottom:6px}
+  #info h3{font-size:12px;color:var(--accent);margin:10px 0 3px;border-bottom:1px solid rgba(232,184,75,.3);padding-bottom:2px}
+  #info ul{list-style:none}
+  #info li{padding-left:1em;text-indent:-1em}
+  #info li::before{content:"・"}
+  #info .pop{margin-top:10px;font-size:11.5px;opacity:.85}
+  #infoToggle{position:fixed;top:70px;right:14px;z-index:11;display:none;
+    background:var(--panel-bg);border:1px solid rgba(232,184,75,.35);color:var(--text);
+    border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px}
+
+  #controls{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:10;
+    width:min(940px,94vw);background:var(--panel-bg);border:1px solid rgba(232,184,75,.35);
+    border-radius:12px;padding:10px 16px;backdrop-filter:blur(6px)}
+  #eraButtons{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-bottom:8px}
+  #eraButtons button{background:rgba(255,255,255,.08);border:1px solid transparent;color:var(--text);
+    font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer;white-space:nowrap}
+  #eraButtons button:hover{background:rgba(232,184,75,.25)}
+  #eraButtons button.active{background:var(--accent);color:#1c1710;font-weight:700}
+  #timelineRow{display:flex;align-items:center;gap:10px}
+  #playBtn{background:var(--accent);color:#1c1710;border:none;border-radius:8px;
+    padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer;min-width:82px}
+  #slider{flex:1;accent-color:var(--accent)}
+  #tourBtn,#todBtn,#sndBtn,#langBtn,#rubyBtn{background:rgba(255,255,255,.08);color:var(--text);border:1px solid rgba(255,255,255,.25);
+    border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;white-space:nowrap}
+  #tourBtn.active,#rubyBtn.active{background:var(--accent);color:#1c1710;font-weight:700}
+  ruby rt{font-size:.55em;color:var(--accent);letter-spacing:0}
+  @media (max-width: 760px){
+    #eraButtons{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+    #eraButtons button{flex:0 0 auto;padding:7px 12px;font-size:12px}
+    #playBtn,#tourBtn,#todBtn,#sndBtn,#langBtn{padding:8px 12px}
+    #subtitle{font-size:13px;padding:6px 12px;max-width:94vw}
+  }
+  #speed{background:rgba(255,255,255,.08);color:var(--text);border:1px solid rgba(255,255,255,.2);
+    border-radius:6px;font-size:11px;padding:3px}
+  #fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .35s;z-index:5}
+  #subtitle{position:fixed;left:50%;transform:translateX(-50%);bottom:118px;z-index:9;
+    max-width:min(860px,90vw);background:rgba(0,0,0,.62);border-radius:8px;padding:8px 20px;
+    font-size:15px;line-height:1.55;text-align:center;text-shadow:0 1px 3px #000;
+    transition:opacity .4s;pointer-events:none}
+  #subtitle .tag{color:var(--accent);font-weight:700;margin-right:.4em}
+  #ticker{position:fixed;top:110px;left:18px;z-index:9;max-width:min(360px,46vw);pointer-events:none;font-size:12.5px}
+  .tick-line{background:rgba(0,0,0,.5);border-left:3px solid var(--accent);padding:3px 10px;margin-top:4px;
+    border-radius:0 6px 6px 0;text-shadow:0 1px 3px #000;animation:tickin .4s}
+  @keyframes tickin{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+  @media (max-width: 760px){ #ticker{display:none} }
+  #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:#0b0a10;z-index:20;font-size:14px;letter-spacing:.2em}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="fade"></div>
+<div id="loading">日本の歴史を読み込み中…</div>
+
+<div id="title">
+  <h1>日本の歴史 3Dシミュレーション</h1>
+  <p>縄文時代（約16,000年前）→ 令和8年（2026）｜生活・産業・戦い</p>
+</div>
+
+<div id="eraBanner">
+  <div class="era-name"></div>
+  <div class="era-years"></div>
+  <div class="era-year-now"></div>
+</div>
+
+<div id="ticker"></div>
+<button id="infoToggle">解説を表示</button>
+<div id="info"></div>
+
+<div id="subtitle"></div>
+
+<div id="controls">
+  <div id="eraButtons"></div>
+  <div id="timelineRow">
+    <button id="playBtn">▶ 再生</button>
+    <button id="tourBtn" title="時代の見どころをカメラが自動巡回">🎥 ツアー</button>
+    <button id="todBtn" title="時間帯を切り替え（昼・夕・夜）">☀️</button>
+    <button id="sndBtn" title="環境音のオン/オフ">🔇</button>
+    <button id="langBtn" title="Switch language">EN</button>
+    <button id="rubyBtn" title="ふりがなを表示（子ども向け）">ふりがな</button>
+    <input id="slider" type="range" min="0" max="1499" value="0" step="1">
+    <select id="speed">
+      <option value="0.5">0.5×</option>
+      <option value="1" selected>1×</option>
+      <option value="2">2×</option>
+      <option value="4">4×</option>
+    </select>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ============================================================
+   基盤: レンダラ / シーン / カメラ
+============================================================ */
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, .1, 3000);
+camera.position.set(60, 42, 90);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 6, 0);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.minDistance = 15;
+controls.maxDistance = 400;
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x445533, 0.9);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff2dd, 1.6);
+sun.position.set(80, 120, 60);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+const S = 160;
+sun.shadow.camera.left=-S; sun.shadow.camera.right=S;
+sun.shadow.camera.top=S;  sun.shadow.camera.bottom=-S;
+sun.shadow.camera.far=500;
+scene.add(sun);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ============================================================
+   ヘルパー: マテリアル / 基本形状 / 人物 / 木 / 火 / 煙
+============================================================ */
+const matCache = new Map();
+function M(color, opts={}){
+  const key = color + JSON.stringify(opts);
+  if(!matCache.has(key)) matCache.set(key, new THREE.MeshLambertMaterial({ color, ...opts }));
+  return matCache.get(key);
+}
+function box(g, w,h,d, color, x,y,z, ry=0){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), M(color));
+  m.position.set(x, y??h/2, z); m.rotation.y = ry;
+  m.castShadow = m.receiveShadow = true; g.add(m); return m;
+}
+function cyl(g, rt,rb,h, color, x,y,z, seg=10){
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg), M(color));
+  m.position.set(x, y??h/2, z); m.castShadow = m.receiveShadow = true; g.add(m); return m;
+}
+function cone(g, r,h, color, x,y,z, seg=10){
+  const m = new THREE.Mesh(new THREE.ConeGeometry(r,h,seg), M(color));
+  m.position.set(x, y??h/2, z); m.castShadow = m.receiveShadow = true; g.add(m); return m;
+}
+function sph(g, r, color, x,y,z){
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r,10,8), M(color));
+  m.position.set(x,y,z); m.castShadow = true; g.add(m); return m;
+}
+
+let animated = [];   // {update(t,dt)}
+function anim(fn){ animated.push(fn); }
+
+/* 人物（歩行アニメーション付き） */
+function person(g, clothColor, x, z, opts={}){
+  const p = new THREE.Group();
+  const body = cyl(p, .45,.55,1.5, clothColor, 0,1.15,0, 8);
+  sph(p, .38, 0xe8c39e, 0, 2.25, 0);                    // 頭
+  if(opts.hat==='kasa') cone(p, .55,.3, 0xc9a86a, 0, 2.62, 0);
+  if(opts.hat==='kabuto') cone(p, .42,.45, 0x333340, 0, 2.62, 0);
+  if(opts.spear){ const s=cyl(p,.04,.04,3.4,0x8a6b45,.5,1.7,0); s.castShadow=false; }
+  p.position.set(x, 0, z);
+  g.add(p);
+  const r = opts.radius ?? 0;
+  const speed = opts.speed ?? (0.3 + Math.random()*0.5);
+  const phase = Math.random()*Math.PI*2;
+  anim((t)=>{
+    if(r>0){
+      const a = phase + t*speed*0.3;
+      p.position.x = x + Math.cos(a)*r;
+      p.position.z = z + Math.sin(a)*r;
+      p.rotation.y = -a;
+    }
+    p.position.y = Math.abs(Math.sin(t*4*speed + phase))*0.12;  // 歩行の上下動
+    body.rotation.z = Math.sin(t*4*speed + phase)*0.06;
+  });
+  return p;
+}
+
+function tree(g, x, z, type='broad', s=1){
+  if(type==='pine'){
+    cyl(g, .18*s,.25*s, 2.4*s, 0x6b4a2e, x, undefined, z, 6);
+    cone(g, 1.5*s, 2.4*s, 0x2e5e34, x, 3.3*s, z, 8);
+    cone(g, 1.1*s, 1.9*s, 0x35703c, x, 4.6*s, z, 8);
+  } else {
+    cyl(g, .2*s,.28*s, 2.2*s, 0x7a5230, x, undefined, z, 6);
+    sph(g, 1.6*s, 0x3f7a3a, x, 3.4*s, z);
+  }
+}
+
+function fire(g, x, z, scale=1){
+  const light = new THREE.PointLight(0xff7722, 2.2*scale, 20*scale);
+  light.position.set(x, 1.2*scale, z);
+  g.add(light);
+  const flame = cone(g, .5*scale, 1.4*scale, 0xff6a1a, x, .7*scale, z, 6);
+  flame.material = new THREE.MeshBasicMaterial({ color:0xff7a20 });
+  anim((t)=>{
+    const f = 1 + Math.sin(t*11)*0.25 + Math.sin(t*23)*0.12;
+    flame.scale.set(f, f, f);
+    light.intensity = (2 + Math.sin(t*13)*0.7)*scale;
+  });
+}
+
+function smoke(g, x, y, z, rate=1){
+  const puffs = [];
+  const mat = new THREE.MeshBasicMaterial({ color:0xbbbbbb, transparent:true, opacity:.3, depthWrite:false });
+  for(let i=0;i<5;i++){
+    const p = new THREE.Mesh(new THREE.SphereGeometry(.5,6,5), mat.clone());
+    p.position.set(x,y,z); g.add(p); puffs.push({m:p, o:i/5});
+  }
+  anim((t)=>{
+    for(const {m,o} of puffs){
+      const k = ((t*0.25*rate + o) % 1);
+      m.position.set(x + Math.sin((k*7)+x)*1.2*k, y + k*9, z);
+      m.scale.setScalar(.5 + k*2.2);
+      m.material.opacity = .38*(1-k);
+    }
+  });
+}
+
+function flagPole(g, x, z, color, h=5){
+  cyl(g, .06,.06, h, 0x5a4632, x, undefined, z, 6);
+  const f = box(g, 1.6, 1.0, .06, color, x+.85, h-0.8, z);
+  anim((t)=>{ f.rotation.y = Math.sin(t*3 + x)*0.25; });
+}
+
+/* 水田・水面 */
+function water(g, w, d, x, z, color=0x3f6f8a){
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), M(color, {transparent:true, opacity:.85}));
+  m.rotation.x = -Math.PI/2; m.position.set(x, .06, z);
+  m.receiveShadow = true; g.add(m);
+  anim((t)=>{ m.position.y = .06 + Math.sin(t*1.5 + x)*0.015; });
+  return m;
+}
+
+function paddy(g, x, z, w=8, d=6){
+  water(g, w, d, x, z, 0x4a7d5f);
+  for(let i=-w/2+1;i<w/2;i+=1.4) for(let j=-d/2+1;j<d/2;j+=1.4){
+    const r = cyl(g, .02,.02,.7, 0x3c7a2f, x+i, .4, z+j, 4);
+    r.castShadow = false;
+  }
+  box(g, w+.6, .3, .35, 0x7a6248, x, .15, z-d/2-.15);
+  box(g, w+.6, .3, .35, 0x7a6248, x, .15, z+d/2+.15);
+  box(g, .35, .3, d+.6, 0x7a6248, x-w/2-.15, .15, z);
+  box(g, .35, .3, d+.6, 0x7a6248, x+w/2+.15, .15, z);
+}
+
+/* 竪穴住居 */
+function pitHouse(g, x, z, s=1){
+  cyl(g, 2.6*s, 2.9*s, .5, 0x8a7355, x, .25, z, 12);
+  cone(g, 2.9*s, 3.2*s, 0xa08b52, x, 2.05*s, z, 10);
+  cone(g, .4*s, .8*s, 0x6b5a3a, x, 3.7*s, z, 6);
+}
+
+/* 高床倉庫 */
+function raisedStore(g, x, z){
+  for(const [dx,dz] of [[-1.2,-1],[1.2,-1],[-1.2,1],[1.2,1]]) cyl(g,.15,.15,2.2,0x8a6b45,x+dx,undefined,z+dz,6);
+  box(g, 3.4, 1.6, 2.6, 0xb59a67, x, 3.0, z);
+  cone(g, 2.6, 1.6, 0x9c8449, x, 4.6, z, 4).rotation.y = Math.PI/4;
+}
+
+/* 寺院・五重塔 */
+function pagoda(g, x, z, floors=5, s=1){
+  let y = 0;
+  for(let i=0;i<floors;i++){
+    const w = (4.6 - i*0.6)*s;
+    box(g, w, 1.5*s, w, 0xa03a2a, x, y+0.75*s, z);
+    const roof = cone(g, w*0.95, 1.0*s, 0x3a3f4a, x, y+1.9*s, z, 4);
+    roof.rotation.y = Math.PI/4;
+    y += 2.1*s;
+  }
+  cyl(g, .1*s,.1*s, 2.2*s, 0xd0a93c, x, y+1.0*s, z, 6);
+}
+function templeHall(g, x, z, w=12, d=8, h=4, roofColor=0x3a3f4a){
+  box(g, w, h, d, 0xb43b28, x, h/2+0.6, z);
+  box(g, w+2, .6, d+2, 0x8a8f99, x, .3, z);
+  const r = cone(g, Math.max(w,d)*0.78, h*0.8, roofColor, x, h+0.6+h*0.4, z, 4);
+  r.rotation.y = Math.PI/4;
+}
+
+/* 城（天守） */
+function castle(g, x, z, tiers=4){
+  box(g, 16, 5, 16, 0x9a9484, x, 2.5, z);          // 石垣
+  let y = 5, w = 11;
+  for(let i=0;i<tiers;i++){
+    box(g, w, 3, w, 0xf2efe6, x, y+1.5, z);
+    const r = cone(g, w*0.8, 1.6, 0x3c4654, x, y+3.6, z, 4);
+    r.rotation.y = Math.PI/4;
+    y += 4.0; w -= 2.2;
+  }
+  cone(g, .3,.9, 0xd0a93c, x, y+0.8, z, 6);
+}
+
+/* 町屋の列 */
+function townRow(g, x, z, n=5, ry=0){
+  const row = new THREE.Group();
+  for(let i=0;i<n;i++){
+    box(row, 4, 3, 5, 0xcbb38a, i*4.4, 1.5, 0);
+    const r = cone(row, 3.4, 1.5, 0x4a4f58, i*4.4, 3.7, 0, 4);
+    r.rotation.y = Math.PI/4;
+  }
+  row.position.set(x, 0, z); row.rotation.y = ry;
+  g.add(row);
+}
+
+/* 近代ビル */
+function building(g, x, z, w, h, d, color=0x8fa3b5, lit=false){
+  const b = box(g, w, h, d, color, x, h/2, z);
+  if(lit){
+    const winMat = new THREE.MeshBasicMaterial({ color:0xffe9a8 });
+    for(let fy=2; fy<h-1; fy+=2.2) for(let fx=-w/2+1; fx<w/2-0.5; fx+=1.6){
+      if(Math.random()<0.55){
+        const win = new THREE.Mesh(new THREE.PlaneGeometry(.7,.9), winMat);
+        win.position.set(x+fx, fy, z+d/2+.02); g.add(win);
+      }
+    }
+  }
+  return b;
+}
+
+/* 船 */
+function boat(g, x, z, len=6, color=0x6b4a2e, sail=false){
+  const b = new THREE.Group();
+  box(b, len, 1, 2, color, 0, .8, 0);
+  if(sail){ cyl(b,.07,.07,5,0x8a6b45,0,3.3,0,6); box(b, 3,3,.06, 0xf2ead5, 0, 3.6, 0.1); }
+  b.position.set(x, 0, z); g.add(b);
+  anim((t)=>{ b.position.y = Math.sin(t*1.2+x)*0.15; b.rotation.z = Math.sin(t*0.9+x)*0.03; });
+  return b;
+}
+
+/* ============================================================
+   生活ビネット: 3D字幕ラベル / 座る人 / 農作業 / 炊事 / 機織り / 屋台
+============================================================ */
+function label(g, text, x, y, z, s=1){
+  const pad = 28, fs = 44;
+  const c = document.createElement('canvas');
+  let ctx = c.getContext('2d');
+  const font = `bold ${fs}px "Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif`;
+  ctx.font = font;
+  const tw = ctx.measureText(text).width;
+  c.width = Math.ceil(tw + pad*2); c.height = 80;
+  ctx = c.getContext('2d');
+  ctx.font = font;
+  ctx.fillStyle = 'rgba(15,13,20,.88)';
+  ctx.beginPath(); ctx.roundRect(0, 0, c.width, c.height, 20); ctx.fill();
+  ctx.strokeStyle = 'rgba(232,184,75,.85)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.roundRect(2, 2, c.width-4, c.height-4, 18); ctx.stroke();
+  ctx.fillStyle = '#f5efdf'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, pad, c.height/2 + 2);
+  const tex = new THREE.CanvasTexture(c);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }));
+  const k = 0.036 * s;
+  spr.scale.set(c.width * k, c.height * k, 1);
+  spr.position.set(x, y, z);
+  spr.renderOrder = 999;
+  g.add(spr);
+  return spr;
+}
+
+/* 座る人（正座） */
+function sitter(g, clothColor, x, z, ry=0){
+  const p = new THREE.Group();
+  cyl(p, .45,.55, .95, clothColor, 0, .5, 0, 8);
+  sph(p, .34, 0xe8c39e, 0, 1.22, 0);
+  p.position.set(x, 0, z); p.rotation.y = ry; g.add(p);
+  return p;
+}
+
+/* かがんで働く人（田植え・畑仕事） */
+function bendWorker(g, clothColor, x, z, ry=0){
+  const p = new THREE.Group();
+  const body = cyl(p, .4,.5, 1.3, clothColor, 0, .95, 0, 8);
+  body.rotation.x = .7;
+  sph(p, .32, 0xe8c39e, 0, 1.35, .75);
+  cone(p, .5,.28, 0xc9a86a, 0, 1.62, .75);
+  p.position.set(x, 0, z); p.rotation.y = ry; g.add(p);
+  anim((t)=>{ p.rotation.x = Math.sin(t*2 + x)*.12; });
+  return p;
+}
+
+/* 炊事（火 + 鍋/土器 + 座る人） */
+function cooking(g, x, z, potColor=0x8a5a3a){
+  fire(g, x, z, .7);
+  const pot = cyl(g, .55,.4,.8, potColor, x, .95, z, 8);
+  anim((t)=>{ pot.position.y = .95 + Math.sin(t*8)*.02; });
+  smoke(g, x, 1.6, z, .5);
+  sitter(g, 0x8a5a33, x+1.4, z+.4, -Math.PI/2);
+}
+
+/* 機織り */
+function loom(g, x, z, ry=0){
+  const l = new THREE.Group();
+  box(l, .15, 1.6, .15, 0x8a6b45, -.8, .8, 0); box(l, .15, 1.6, .15, 0x8a6b45, .8, .8, 0);
+  box(l, 1.75, .12, .12, 0x8a6b45, 0, 1.5, 0);
+  box(l, 1.5, 1.0, .05, 0xe8dfc8, 0, .85, 0);
+  l.position.set(x, 0, z); l.rotation.y = ry; g.add(l);
+  sitter(g, 0x7a4a5a, x, z+1.2, Math.PI);
+}
+
+/* 市・屋台 */
+function stall(g, x, z, awningColor=0x8a3a3a, ry=0){
+  const s = new THREE.Group();
+  box(s, 2.6, .8, 1.4, 0x9c8449, 0, .8, 0);
+  for(const dx of [-1.1, 1.1]) cyl(s, .06,.06, 2.2, 0x6b5636, dx, undefined, -.5, 5);
+  const awn = box(s, 3, .08, 1.8, awningColor, 0, 2.2, -.2);
+  awn.rotation.x = -.18;
+  for(let i=0;i<3;i++) sph(s, .22, [0xd8b030,0xc23030,0x4a7d5f][i], -.7+i*.7, 1.35, 0);
+  s.position.set(x, 0, z); s.rotation.y = ry; g.add(s);
+  sitter(g, 0x4a5a3a, x, z-1.1, ry);
+}
+
+/* ============================================================
+   共通ベース地形（各時代シーンの下地）
+============================================================ */
+function baseTerrain(g, groundColor, opts={}){
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(240, 48), M(groundColor));
+  ground.rotation.x = -Math.PI/2; ground.receiveShadow = true;
+  g.add(ground);
+  // 遠景の山並み＋富士
+  const mtn = [[-150,40,60],[ -90,28,45],[120,34,55],[170,26,42],[60,22,38]];
+  for(const [mx,mh,mr] of mtn) cone(g, mr, mh, 0x4a5e52, mx, mh/2, -170, 7);
+  cone(g, 46, 52, 0x5d6b78, 10, 26, -205, 24);         // 富士山
+  cone(g, 18, 16, 0xf5f5fa, 10, 44, -205, 24);         // 冠雪
+  if(!opts.noSea){
+    const sea = new THREE.Mesh(new THREE.PlaneGeometry(600, 160), M(0x2e5d7d,{transparent:true,opacity:.92}));
+    sea.rotation.x = -Math.PI/2; sea.position.set(0, .02, 190);
+    g.add(sea);
+    anim((t)=>{ sea.position.y = .02 + Math.sin(t)*0.05; });
+  }
+}
+
+/* ============================================================
+   時代データ + シーン構築
+   年代の根拠: 国立歴史民俗博物館 AMS炭素14年代測定（2002）ほか
+   → research/notes.md 参照
+============================================================ */
+const ERAS = [
+{
+  id:'jomon', name:'縄文時代', years:'約16,000年前 〜 紀元前10世紀頃',
+  y0:-14000, y1:-950, sky:0x8fbbd9, ground:0x6f8f56, pop:'約26万人（縄文中期ピーク・鬼頭宏推計。晩期は約8万人に減少）',
+  info:{
+    life:['竪穴住居に定住し、狩猟・漁労・採集で暮らす','縄文土器で煮炊き、貝塚が残る','三内丸山遺跡（青森）は前期〜中期の大集落。クリはDNA鑑定で栽培と判明','縄文人の祖先は約2万〜1.5万年前に大陸の基層集団から分岐した独自の集団（2021年ゲノム研究「三重構造モデル」）','三内丸山や垣ノ島など「北海道・北東北の縄文遺跡群」は2021年に世界文化遺産に登録された'],
+    industry:['世界最古級の土器文化','黒曜石・ヒスイの長距離交易','骨角器 — シカやイノシシの骨・角から釣針・銛・縫い針を作り、海と山の恵みを使い尽くした','弓矢・丸木舟。漆工芸は垣ノ島遺跡（北海道）出土の約9,000年前の漆製品が世界最古級 — 縄文早期から高度な塗装技術があった','三内丸山では6本柱の大型掘立柱建物、長さ32mの大型竪穴建物'],
+    war:['大規模な戦争の痕跡は少ない','集団間の小競り合いにとどまる比較的平和な時代'],
+    problem:['縄文海進（ピーク約7,000年前）: 温暖化で海面が今より2〜3m高く、海が内陸まで浸入 — 人々は海辺の台地に住み漁労を発達させた（内陸の貝塚がその証拠）','課題: その後の寒冷化（約4,200年前〜）で食料資源が減少、人口は中期26万→晩期8万へ','解決: クリ林の管理栽培・貯蔵穴・サケ漁の季節利用・広域交易網で資源を補完','自然と共生する持続可能な暮らしを1万年以上続けた']
+  },
+  build(g){
+    baseTerrain(g, 0x6f8f56);
+    pitHouse(g, -12, 0); pitHouse(g, 0, -10); pitHouse(g, 12, 2); pitHouse(g, -2, 12, .8);
+    fire(g, 2, 0, 1.2);
+    // 三内丸山: 6本柱の大型掘立柱建物
+    for(let ix=0;ix<3;ix++) for(let jz=0;jz<2;jz++) cyl(g, .55,.7, 11, 0x8a6b45, -28+ix*4.5, undefined, -20+jz*4.5, 8);
+    box(g, 12, .9, 7, 0x9c8449, -23.5, 11.4, -17.7);
+    // 大型竪穴建物（長さ32m級のロングハウス）
+    const lhg = new THREE.Group();
+    const lh = new THREE.Mesh(new THREE.ConeGeometry(3.4, 4.5, 4), M(0xa08b52));
+    lh.rotation.y = Math.PI/4; lh.position.y = 2.25; lh.castShadow = lh.receiveShadow = true;
+    lhg.add(lh); lhg.scale.set(2.6, 1, 1); lhg.position.set(18, 0, 14);
+    g.add(lhg);
+    for(let i=0;i<14;i++) tree(g, -70+Math.random()*60, -60+Math.random()*40, 'broad', .8+Math.random());
+    for(let i=0;i<10;i++) tree(g, 30+Math.random()*50, -50+Math.random()*60, 'pine', .8+Math.random());
+    sph(g, 2.2, 0xd8d2c4, 26, 1.0, 20);  // 貝塚
+    sph(g, 1.6, 0xd8d2c4, 29, .8, 22);
+    person(g, 0x8a5a33, -5, 5, {radius:6});
+    person(g, 0x7a4a2a, 8, -4, {radius:8, spear:true});
+    person(g, 0x96683d, -14, -6, {radius:4});
+    boat(g, -10, 175, 5, 0x5a4632);      // 丸木舟
+    // 鹿
+    const deer = new THREE.Group();
+    box(deer, 1.8,.9,.7, 0x9a6b40, 0,1.2,0); sph(deer,.35,0x9a6b40,1.1,1.9,0);
+    deer.position.set(35,0,-20); g.add(deer);
+    anim((t)=>{ deer.position.x = 35+Math.sin(t*.4)*10; deer.rotation.y = Math.cos(t*.4)>0?0:Math.PI; });
+    // ── 生活の営み（字幕付き） ──
+    cooking(g, 4, 4);
+    label(g, '縄文土器で煮炊き — 調理の革命', 4, 4.4, 4, .9);
+    // 干し魚の棚
+    box(g, 3, .08, .08, 0x8a6b45, -18, 1.6, 10);
+    cyl(g,.06,.06,1.6,0x8a6b45,-19.4,undefined,10,5); cyl(g,.06,.06,1.6,0x8a6b45,-16.6,undefined,10,5);
+    for(let i=0;i<4;i++) box(g, .5,.7,.06, 0xb0c4d0, -19+i*0.7, 1.15, 10);
+    label(g, '魚や貝を干して保存', -18, 3.6, 10, .85);
+    bendWorker(g, 0x96683d, -6, 14);
+    label(g, 'ドングリ・クリの採集と管理栽培', -6, 3.6, 14, .85);
+    label(g, '竪穴住居のムラ（10戸前後で定住）', -12, 6.4, 0, .95);
+    label(g, '大型掘立柱建物 — 三内丸山遺跡', -23.5, 15, -17.7, .9);
+    label(g, '貝塚 — 食べ跡と祈りの場', 27, 4.4, 21, .8);
+  }
+},
+{
+  id:'yayoi', name:'弥生時代', years:'紀元前10世紀頃 〜 3世紀中頃',
+  y0:-950, y1:250, sky:0x9cc4de, ground:0x7a9a54, pop:'約59.5万人（弥生末期・鬼頭宏推計）',
+  info:{
+    life:['水田稲作が九州北部から約800年かけて東へ広がる（歴博 炭素14年代測定）','環濠集落で共同生活、高床倉庫に米を蓄える','稲作とともに北東アジア起源の渡来人が到来し、縄文人と混血 — 現代日本人形成の第2の波','青銅器・鉄器が伝来'],
+    industry:['水稲農耕が経済の基盤に','青銅の祭器（銅鐸・銅剣）、鉄製農具','機織り・かめ棺'],
+    war:['余剰生産をめぐり集落間の戦争が始まる。吉野ヶ里（佐賀）は外壕約2.5km・約40haの二重環濠に物見櫓・逆茂木を備えた防御集落','「倭国大乱」（2世紀後半）','邪馬台国・卑弥呼が約30国を統べる（3世紀）'],
+    problem:['課題: 米の備蓄が「富」となり、水利・土地をめぐる戦争が日本で初めて発生','解決: 環濠・柵・物見櫓で自衛しつつ、争乱は卑弥呼の共立＝祭祀と外交による調停で収拾','中国王朝の権威（金印・称号）を借りて秩序を安定させる外交戦略が始まる']
+  },
+  build(g){
+    baseTerrain(g, 0x7a9a54);
+    for(let i=0;i<3;i++) for(let j=0;j<2;j++) paddy(g, -30+i*10, 18+j*8);
+    pitHouse(g, -8, -8); pitHouse(g, 4, -14); pitHouse(g, 14, -4, .9);
+    raisedStore(g, 24, -14); raisedStore(g, 30, -6);
+    // 環濠と柵
+    const moat = new THREE.Mesh(new THREE.RingGeometry(26, 29, 40), M(0x3f6f8a,{transparent:true,opacity:.8}));
+    moat.rotation.x = -Math.PI/2; moat.position.y = .05; moat.position.x = 6; moat.position.z = -8; g.add(moat);
+    for(let a=0;a<Math.PI*2;a+=.16) cyl(g,.12,.12,2.4,0x6b5636, 6+Math.cos(a)*25, undefined, -8+Math.sin(a)*25, 5);
+    // 物見櫓
+    for(const [dx,dz] of [[-1,-1],[1,-1],[-1,1],[1,1]]) cyl(g,.15,.15,7,0x6b5636, -6+dx*1.5, undefined, -20+dz*1.5, 6);
+    box(g, 4, 2, 4, 0xa08b52, -6, 8, -20); cone(g, 3, 1.6, 0x8f7a42, -6, 9.8, -20, 4);
+    person(g, 0x4a6a8a, -25, 20, {radius:3, hat:'kasa'});
+    person(g, 0x6a4a3a, -15, 24, {radius:4, hat:'kasa'});
+    person(g, 0x8a5a33, 10, -8, {radius:6, spear:true});
+    person(g, 0x5a5a6a, 30, 8, {radius:5, spear:true});
+    fire(g, 0, -4, .8);
+    // ── 生活の営み（字幕付き） ──
+    for(let i=0;i<3;i++) bendWorker(g, [0x6a4a3a,0x4a6a8a,0x96683d][i], -30+i*9, 17+i*4);
+    label(g, '田植えと稲刈り — 水田稲作の始まり', -20, 4.8, 20, .95);
+    loom(g, 16, 2);
+    label(g, '機織り — 貫頭衣を織る', 16, 3.6, 2, .85);
+    // 臼と杵で脱穀
+    cyl(g, .5,.6,.8, 0x8a6b45, 22, .4, -10, 8);
+    const kine = cyl(g, .09,.09,1.8, 0x8a6b45, 22.6, 1.6, -10, 5);
+    anim((t)=>{ kine.rotation.z = .5 + Math.sin(t*4)*.5; });
+    sitter(g, 0x6a4a3a, 23.4, -9.4, -2);
+    label(g, '臼と杵で籾すり', 22, 3.4, -10, .8);
+    label(g, '高床倉庫 — 米を蓄える（ネズミ返し付き）', 27, 6.6, -10, .9);
+    label(g, '物見櫓と環濠 — ムラを守る', -6, 12.4, -20, .9);
+  }
+},
+{
+  id:'kofun', name:'古墳時代', years:'3世紀中頃 〜 592年',
+  y0:250, y1:592, sky:0xa5c6db, ground:0x7f9a58, pop:'推定 約540万人（6世紀頃）',
+  info:{
+    life:['ヤマト王権が列島の広域を統合','豪族が前方後円墳を築き権威を示す','渡来人が土木・機織・須恵器の技術をもたらす','古墳時代に東アジア集団が大規模に渡来し混血 — 縄文＋弥生＋古墳の「三重構造」で現代日本人の遺伝的基盤がほぼ完成'],
+    industry:['巨大古墳の土木技術（大山古墳は墳丘長486m）','須恵器・馬具・鉄器生産の拡大','屯倉・田荘による農業経営'],
+    war:['王権による地方平定（ワカタケル大王の刻銘剣）','朝鮮半島へ出兵し高句麗と交戦（好太王碑）','磐井の乱（527年）'],
+    problem:['課題: 各地の豪族をどう一つの政権にまとめるか。高句麗南下など半島情勢への対応','解決: 巨大古墳という「見える権威」と氏姓制度という「身分の秩序」で統合','先進技術を持つ渡来人を積極受容 — 技術で国力を高める日本型発展の原型']
+  },
+  build(g){
+    baseTerrain(g, 0x7f9a58);
+    // 前方後円墳（鍵穴形）
+    const kofun = new THREE.Group();
+    const circ = cyl(kofun, 14, 18, 7, 0x5f7d4a, 0, 3.5, -10, 28);
+    const sq = new THREE.Mesh(new THREE.CylinderGeometry(9, 13, 6, 4), M(0x5f7d4a));
+    sq.position.set(0, 3, 14); sq.rotation.y = Math.PI/4; sq.scale.set(1.15,1,1.3);
+    sq.castShadow = sq.receiveShadow = true; kofun.add(sq);
+    const moat = new THREE.Mesh(new THREE.RingGeometry(20, 26, 40), M(0x3f6f8a,{transparent:true,opacity:.8}));
+    moat.rotation.x=-Math.PI/2; moat.position.set(0,.05,0); kofun.add(moat);
+    kofun.position.set(-15, 0, -15); g.add(kofun);
+    // 埴輪列
+    for(let i=0;i<8;i++) cyl(g, .5,.6,1.6, 0xc27b4a, 12+i*2.2, undefined, 8, 8);
+    pitHouse(g, 28, -8); pitHouse(g, 36, 0, .9);
+    raisedStore(g, 30, 14);
+    person(g, 0xa03a2a, 20, 10, {radius:5});
+    person(g, 0x4a6a8a, 30, -14, {radius:4, spear:true});
+    person(g, 0x6a4a3a, 14, 16, {radius:3, hat:'kasa'});
+    for(let i=0;i<8;i++) tree(g, -60+Math.random()*30, 20+Math.random()*30, 'pine', 1);
+    // ── 生活の営み（字幕付き） ──
+    label(g, '前方後円墳 — 大王の権威の象徴', -15, 13, -15, 1.05);
+    sitter(g, 0x8a5a33, 16, 10.8, .5);
+    cyl(g, .4,.5,1.1, 0xc27b4a, 17.4, .55, 11.4, 8);
+    label(g, '埴輪づくりの工人', 16, 3.6, 10, .85);
+    // 須恵器の登窯（渡来人の技術）
+    const kiln = cyl(g, 1.1, 1.4, 5, 0x7a6a5a, 34, .9, 18, 8);
+    kiln.rotation.z = Math.PI/2 - .3;
+    smoke(g, 36, 2.4, 18, .8);
+    label(g, '須恵器の登窯 — 渡来人がもたらした技術', 34, 4.6, 18, .85);
+    cooking(g, 30, -4);
+    label(g, 'カマドの普及で食生活が進化', 30, 4.2, -4, .85);
+  }
+},
+{
+  id:'asuka', name:'飛鳥時代', years:'592年 〜 710年',
+  y0:592, y1:710, sky:0xaccadf, ground:0x83a05c, pop:'推定 約500〜600万人',
+  info:{
+    life:['仏教が国家に受容され寺院が建つ','日本三古湯（道後・有馬・白浜）は記紀に登場する古湯 — 631年には舒明天皇が有馬で86日間の湯治（天皇初の湯治記録）','冠位十二階・十七条憲法（聖徳太子）','律令国家の建設が進む（大化の改新645年）。「大化」は日本最初の元号 — 以後、令和まで248の元号が続く'],
+    industry:['法隆寺など世界最古級の木造建築技術','金剛組（578年創業） — 四天王寺建立のため百済から招かれた宮大工が興した世界最古の企業。1400年後の今も宮大工が活動','貨幣の鋳造（富本銭）','漏刻（水時計、671年） — 天智天皇が日本で初めて時を告げた（『日本書紀』。6月10日「時の記念日」の由来）','条里制による耕地整理'],
+    war:['蘇我氏 vs 物部氏（仏教受容をめぐる内戦）','白村江の戦い（663年）— 倭軍約4万2千・船800余隻が唐13万・新羅5万の連合軍に大敗、船400隻余を失う（数値は諸説）','壬申の乱（672年）— 古代最大の内乱'],
+    problem:['課題: 白村江の敗戦による国防の危機と、豪族連合のままの弱い統治体制','解決: 水城・朝鮮式山城・防人で防衛を固め、唐の律令を徹底的に学んで中央集権国家を建設','「外圧を受けて一気に体制を革新する」日本史のパターンの最初の事例（大宝律令701年）']
+  },
+  build(g){
+    baseTerrain(g, 0x83a05c);
+    pagoda(g, -12, -8, 5, 1);
+    templeHall(g, 8, -12, 14, 9, 4.5);
+    box(g, 40, .3, 30, 0xcabf9e, 0, .15, -8);      // 伽藍の敷地
+    for(let i=0;i<6;i++) cyl(g,.2,.2,3,0xa03a2a, -20+i*8, undefined, 8, 6); // 回廊柱
+    box(g, 44, .5, 1, 0xa03a2a, 0, 3, 8);
+    paddy(g, -28, 26); paddy(g, -18, 26); paddy(g, -8, 26);
+    person(g, 0x5a4a7a, 0, 0, {radius:7});
+    person(g, 0xd8cfae, -8, 4, {radius:5});
+    person(g, 0x6a4a3a, -22, 26, {radius:3, hat:'kasa'});
+    boat(g, 20, 180, 8, 0x6b4a2e, true);           // 遣隋使・遣唐使船
+    boat(g, -30, 195, 8, 0x6b4a2e, true);
+    for(let i=0;i<6;i++) tree(g, 25+Math.random()*30, 10+Math.random()*25, 'broad', 1);
+    // ── 生活の営み（字幕付き） ──
+    label(g, '五重塔 — 仏教文化の華', -12, 13.5, -8, 1);
+    label(g, '金堂 — 飛鳥寺・法隆寺の伽藍', 8, 9, -12, .9);
+    // 寺院造営の工人（足場と木材）
+    box(g, .18, 5, .18, 0x8a6b45, 16, 2.5, -6); box(g, .18, 5, .18, 0x8a6b45, 19, 2.5, -6);
+    box(g, 3.6, .15, .5, 0x9c8449, 17.5, 4.2, -6);
+    box(g, 2.8, .5, .5, 0x8a6b45, 24, .25, -4, .4);
+    bendWorker(g, 0x5a5a6a, 22, -2, 2.2);
+    label(g, '寺院の造営 — 大工と瓦職人', 18, 6.8, -6, .85);
+    for(let i=0;i<2;i++) bendWorker(g, 0x6a4a3a, -26+i*8, 24+i*3);
+    label(g, '条里制の水田で農作業', -18, 4.8, 26, .9);
+    label(g, '遣隋使・遣唐使 — 大陸へ学びの航海', 0, 6.5, 172, .95);
+  }
+},
+{
+  id:'nara', name:'奈良時代', years:'710年 〜 794年',
+  y0:710, y1:794, sky:0xb2cede, ground:0x87a35e, pop:'約450〜500万人超（8世紀・鬼頭宏推計）',
+  info:{
+    life:['平城京（人口約10万）に碁盤目状の都','班田収授法で口分田を支給、租庸調の税','雅楽 — 大陸伝来の音楽が宮廷に定着。「世界最古のオーケストラ」として1300年後の今も宮内庁楽部が継承（2009年ユネスコ無形文化遺産）','神仏習合の始まり — 神社に神宮寺が併設され、神と仏が共存する日本独自の信仰が芽生えた（以後1,000年以上続く）','天然痘の大流行（737年）'],
+    industry:['東大寺大仏の鋳造（金銅仏、752年開眼）','和同開珎（708年）の流通 — 皇朝十二銭の最初の銭貨','正倉院に見る工芸・シルクロード交易','百万塔陀羅尼（770年完成） — 刊行年が明確な現存世界最古の印刷物。100万巻を刷り十大寺に奉納'],
+    war:['対外戦争は少ないが東北の蝦夷と交戦','藤原広嗣の乱（740年）','恵美押勝の乱（764年）'],
+    problem:['課題: 天然痘の大流行（735-737年）で総人口の25〜35%が死亡と推定。政権中枢の藤原四兄弟も全員病死','解決: 国分寺建立と東大寺大仏造立という国家事業で人心を安定させ、税を減免','墾田永年私財法（743年）で土地制度を緩め開墾を促進 — 危機に公共事業と制度改革で応えた']
+  },
+  build(g){
+    baseTerrain(g, 0x87a35e, {noSea:false});
+    // 大仏殿風の大伽藍
+    templeHall(g, 0, -18, 22, 14, 8, 0x39424e);
+    // 大仏（シルエット）
+    sph(g, 2.6, 0x7f8a5e, 0, 9, -18);
+    // 碁盤目の都
+    for(let i=0;i<4;i++) box(g, 60, .12, 2.4, 0xcabf9e, 0, .06, 2+i*10);
+    for(let i=0;i<5;i++) box(g, 2.4, .12, 40, 0xcabf9e, -24+i*12, .06, 20);
+    for(let i=0;i<3;i++) for(let j=0;j<3;j++){
+      box(g, 6, 2.5, 5, 0xd8cdb0, -18+i*12, 1.25, 6+j*10);
+      cone(g, 4.4, 1.4, 0x4a4f58, -18+i*12, 3.2, 6+j*10, 4).rotation.y = Math.PI/4;
+    }
+    // 朱雀門
+    box(g, 10, 4, 3, 0xb43b28, 0, 2.6, 34);
+    cone(g, 7, 2, 0x39424e, 0, 5.6, 34, 4).rotation.y = Math.PI/4;
+    person(g, 0x7a3a5a, 0, 10, {radius:8});
+    person(g, 0xd8cfae, -12, 16, {radius:5});
+    person(g, 0x4a6a8a, 12, 24, {radius:6, hat:'kasa'});
+    // ── 生活の営み（字幕付き） ──
+    label(g, '大仏殿 — 東大寺盧舎那仏（752年開眼）', 0, 15, -18, 1.05);
+    label(g, '朱雀門 — 平城京の正門', 0, 8.4, 34, .9);
+    stall(g, -10, 26, 0x8a3a3a, .3); stall(g, -14, 30, 0x3a5a8a, -.2);
+    label(g, '東西の市 — 和同開珎で商い', -12, 4.6, 28, .9);
+    const carrier = person(g, 0x96683d, 20, 14, {radius:7, hat:'kasa'});
+    box(carrier, .5, .9, .5, 0x9c8449, 0, 1.7, -.5);
+    label(g, '租・庸・調 — 税を担いで都へ運ぶ', 20, 4.6, 14, .85);
+    sitter(g, 0x8a5a33, 8, 12, 2.4);
+    label(g, '木簡に記録 — 役人の仕事と写経', 8, 3.2, 12, .8);
+  }
+},
+{
+  id:'heian', name:'平安時代', years:'794年 〜 1185年',
+  y0:794, y1:1185, sky:0xbcd2e2, ground:0x84a05e, pop:'推定 約550〜700万人',
+  info:{
+    life:['平安京遷都。貴族は寝殿造で暮らす','かな文字誕生、『源氏物語』『枕草子』の国風文化','祇園祭の起源 — 疫病退散を祈る祇園御霊会（869年）に始まり970年から毎年開催。1150年以上続く世界最古級の都市祭礼','相撲節会 — 天皇が観覧する宮中行事として相撲が定着（起源は『古事記』『日本書紀』の力比べ神話）','地方では武士団が成長'],
+    industry:['荘園制の発達','皇朝十二銭は乾元大宝（958年）を最後に鋳造停止 — 信用を失い米・絹が通貨代わりに。平安末に清盛が宋銭を輸入して貨幣経済を再起動','絹織物・和紙・蒔絵など王朝工芸','宋との私貿易（博多）'],
+    war:['平将門の乱・藤原純友の乱（939年）','前九年・後三年合戦で武士が台頭','源平合戦（1180-85年）→ 壇ノ浦で平家滅亡'],
+    problem:['課題: 律令制の形骸化（戸籍の崩壊・税の未納）と地方の治安悪化','貞観地震（869年、M8.3以上）— 大津波が多賀城下まで達したと『日本三代実録』に記録。朝廷は租税免除と食料支給で被災者を救済（この記録が現代の津波研究にも活用された）','解決: 国司への徴税請負、荘園の公認、治安維持の武士への委託と、現実に合わせ制度を柔軟化','ただしこの「外注」が武士の台頭を招き、貴族政治の終焉につながった']
+  },
+  build(g){
+    baseTerrain(g, 0x84a05e);
+    // 寝殿造
+    box(g, 16, 3.5, 10, 0xe8dfc8, 0, 2.35, -12);
+    box(g, 18, .6, 12, 0x8a8f99, 0, .3, -12);
+    cone(g, 12, 3, 0x3a3f4a, 0, 5.6, -12, 4).rotation.y = Math.PI/4;
+    box(g, 6, 2.8, 6, 0xe8dfc8, -14, 2.0, -4);
+    cone(g, 5, 2, 0x3a3f4a, -14, 4.4, -4, 4).rotation.y = Math.PI/4;
+    box(g, 6, 2.8, 6, 0xe8dfc8, 14, 2.0, -4);
+    cone(g, 5, 2, 0x3a3f4a, 14, 4.4, -4, 4).rotation.y = Math.PI/4;
+    water(g, 22, 10, 0, 8, 0x3f6f8a);              // 庭園の池
+    sph(g, 1.4, 0x5f7d4a, -4, .9, 8);              // 中島
+    // 牛車
+    const cart = new THREE.Group();
+    box(cart, 3, 2.4, 2.2, 0x3a3340, 0, 2, 0);
+    cyl(cart, 1.1, 1.1, .3, 0x6b5636, -0.2, 1.1, 1.2).rotation.z = Math.PI/2;
+    cyl(cart, 1.1, 1.1, .3, 0x6b5636, -0.2, 1.1, -1.2).rotation.z = Math.PI/2;
+    box(cart, 2.4,.9,1.3, 0x2a2a30, -3, 1.2, 0);   // 牛
+    cart.position.set(-10, 0, 20); g.add(cart);
+    anim((t)=>{ cart.position.x = -10 + Math.sin(t*.15)*14; });
+    // 源平の軍旗（白=源氏 / 赤=平家）
+    flagPole(g, 30, 18, 0xf5f5f5); flagPole(g, 34, 22, 0xf5f5f5);
+    flagPole(g, 30, 30, 0xc23030); flagPole(g, 34, 34, 0xc23030);
+    person(g, 0xf5f5f5, 32, 20, {radius:3, spear:true});
+    person(g, 0xc23030, 32, 32, {radius:3, spear:true});
+    person(g, 0x9a4a7a, 0, 14, {radius:5});
+    person(g, 0x4a5a9a, -8, 16, {radius:4});
+    for(let i=0;i<6;i++) tree(g, -40+Math.random()*20, -30+Math.random()*20, 'broad', 1);
+    // ── 生活の営み（字幕付き） ──
+    label(g, '寝殿造 — 貴族の邸宅と庭園', 0, 9, -12, 1);
+    sitter(g, 0x9a4a7a, 4, -6, .6);
+    label(g, 'かな文字で物語を書く女房（源氏物語）', 4, 3.4, -6, .85);
+    // 蹴鞠
+    const mari = sph(g, .25, 0xe8dfc8, -6, .5, 2);
+    anim((t)=>{ mari.position.y = .3 + Math.abs(Math.sin(t*3))*2.2; });
+    person(g, 0x7a3a5a, -8, 2, {speed:.8});
+    person(g, 0x3a6a5a, -4, 2, {speed:.9});
+    label(g, '蹴鞠に興じる貴族', -6, 4.8, 2, .85);
+    label(g, '牛車 — 貴族の乗り物', -10, 4.6, 20, .85);
+    label(g, '源氏（白）と平家（赤） — 武士の時代へ', 32, 7.4, 26, .9);
+  }
+},
+{
+  id:'kamakura', name:'鎌倉時代', years:'1185年 〜 1333年',
+  y0:1185, y1:1333, sky:0xa8c2d4, ground:0x7d9758, pop:'推定 約700〜760万人',
+  info:{
+    life:['初の武家政権。武士は質実剛健な館に住む','鎌倉新仏教（法然・親鸞・日蓮・禅宗）が民衆へ','禅宗とともに精進料理が広まり、豆腐・味噌など大豆食品が発達 — 和食の土台に','二毛作・牛馬耕の普及で農業生産が向上'],
+    industry:['定期市（三斎市）と宋銭の流通','刀鍛冶・甲冑など武具工芸の発達 — たたら製鉄（砂鉄と木炭による日本独自の製鉄法）の玉鋼を折り返し鍛錬で鍛えた日本刀は、鎌倉期に性能・美の頂点を迎えた','商工業の座が成立'],
+    war:['承久の乱（1221年）で朝廷に勝利','元寇: 文永の役1274年（約900隻・2.5〜4万人）→ 弘安の役1281年（約4,400隻・約14万人 — 当時世界最大の艦隊）','石築地（防塁）で上陸を阻み、御家人の奮戦と暴風雨で撃退'],
+    problem:['背景: 中世温暖期（約1000〜1350年） — 温暖な気候が開墾と二毛作の拡大を後押しし、人口増加を支えた',
+'課題: 元寇は防衛戦争のため恩賞の土地がなく、命がけで戦った御家人に報いられなかった','解決の試み: 永仁の徳政令（1297年）で借金帳消し → かえって信用経済が混乱','「戦争に勝っても財政が破綻する」難題を解決できず、幕府滅亡（1333年）の遠因に — 失敗も歴史の教訓']
+  },
+  build(g){
+    baseTerrain(g, 0x7d9758);
+    // 武家館
+    box(g, 14, 3, 9, 0xd8cdb0, -10, 1.9, -14);
+    cone(g, 9.5, 2.4, 0x4a4f58, -10, 4.6, -14, 4).rotation.y = Math.PI/4;
+    for(let i=-18;i<=0;i+=2) box(g, .3, 2, .3, 0x6b5636, i, 1, -6);   // 塀
+    // 大仏（鎌倉大仏）
+    sph(g, 3, 0x5e7a6e, 18, 4.6, -18);
+    cyl(g, 3.2, 3.6, 3.5, 0x5e7a6e, 18, 1.9, -18, 12);
+    // 石築地（元寇防塁）
+    for(let i=0;i<14;i++) box(g, 4, 1.6, 1.2, 0x8f8a7a, -30+i*4.3, .8, 150);
+    // 元軍の船
+    boat(g, -20, 185, 10, 0x4a3a2a, true); boat(g, 5, 195, 10, 0x4a3a2a, true); boat(g, 30, 188, 10, 0x4a3a2a, true);
+    // 武士
+    person(g, 0x3a3a4a, -6, 4, {radius:5, hat:'kabuto', spear:true});
+    person(g, 0x5a3a3a, 4, 8, {radius:6, hat:'kabuto', spear:true});
+    person(g, 0x6a4a3a, -20, 16, {radius:4, hat:'kasa'});
+    person(g, 0x8a7a5a, 12, 140, {radius:5, hat:'kabuto', spear:true});
+    paddy(g, -30, 24); paddy(g, -20, 24);
+    for(let i=0;i<6;i++) tree(g, 30+Math.random()*25, 4+Math.random()*20, 'pine', 1);
+    // ── 生活の営み（字幕付き） ──
+    label(g, '鎌倉大仏', 18, 11, -18, .95);
+    label(g, '武家館 — 質実剛健な暮らし', -10, 7.6, -14, .9);
+    label(g, '石築地（元寇防塁） — 総延長約20kmで上陸を阻む', 0, 5.4, 148, .95);
+    label(g, '元軍襲来 — 弘安の役は約4,400隻・14万人（世界最大の艦隊）', 5, 9, 190, 1);
+    boat(g, -35, 192, 10, 0x4a3a2a, true); boat(g, 45, 190, 10, 0x4a3a2a, true);
+    // 防塁から元軍船への矢の応酬
+    for(let i=0;i<4;i++){
+      const arrow = cyl(g, .03,.03, .9, 0xe8dfc8, 0, 0, 0, 4);
+      arrow.castShadow = false;
+      anim((t)=>{ const k = (t*.5 + i*.25) % 1;
+        arrow.position.set(-20+i*12 + k*8, 2 + Math.sin(k*Math.PI)*6, 152 + k*36);
+        arrow.rotation.x = Math.PI/2 - (k-.5)*1.2; });
+    }
+    stall(g, -2, 18, 0x8a3a3a, .2); stall(g, 3, 21, 0x3a5a8a, -.3);
+    label(g, '三斎市 — 月3回の定期市、宋銭で売買', 0, 4.8, 19, .9);
+    bendWorker(g, 0x6a4a3a, -28, 27); bendWorker(g, 0x96683d, -22, 21, 1);
+    label(g, '二毛作と牛馬耕で収穫が増える', -25, 4.8, 24, .9);
+    // 流鏑馬
+    const yab = new THREE.Group();
+    box(yab, 2.2,1.1,.8, 0x5a4632, 0,1.5,0); sph(yab,.4,0x5a4632,1.3,2.3,0);
+    cyl(yab,.35,.45,1.2,0x3a3a4a,0,2.6,0,6);
+    yab.position.set(0,0,-30); g.add(yab);
+    anim((t)=>{ yab.position.x = -30 + ((t*9) % 60); yab.position.y = Math.abs(Math.sin(t*8))*.15; });
+    label(g, '流鏑馬 — 武士の鍛錬「いざ鎌倉」', 0, 5.2, -30, .9);
+  }
+},
+{
+  id:'muromachi', name:'室町時代（戦国含む）', years:'1336年 〜 1573年',
+  y0:1336, y1:1573, sky:0xa5bfd2, ground:0x7d9758, pop:'推定 約800〜1,000万人',
+  info:{
+    life:['京都室町に幕府。能・茶の湯など今に続く文化','書院造が成立 — 畳を敷き詰め、襖・障子・床の間・玄関を備えた様式は現代の和室の原型','小袖が表着に — 公家の下着と庶民の日常着が応仁の乱を境に一元化し、現代の着物の原型が生まれた','足利学校 — 日本最古の学校。最盛期は学生3,000人を数え、ザビエルが「坂東の大学」として海外に紹介した（1549年）','武家の本膳料理が成立し「一汁三菜」の型が定まる — 和食の原型が完成、庖丁流派も誕生','惣村の自治、土一揆','南では尚巴志が琉球王国を統一（1429年） — 中継貿易で東アジア〜東南アジアに繁栄。北では和人とアイヌの交易が進み、コシャマインの戦い（1457年）も起きた','応仁の乱後は下剋上の戦国時代へ'],
+    industry:['日明勘合貿易','座・馬借・問丸、手工業の専門化','鉄砲伝来（1543年 種子島）で軍需産業が勃興'],
+    war:['南北朝の内乱（1336-92年）','応仁の乱（1467-77年）で京都焼亡','戦国大名が割拠 — 桶狭間（1560年）で信長が台頭。第四次川中島（1561年）は両軍計約3万2千のうち2万7千余が死傷と伝わる激戦（軍記由来の数値で諸説）'],
+    problem:['課題: 中央権力の崩壊による約100年の全国的戦乱と治安の喪失','解決: 権力の空白を民衆自身が埋めた — 惣村の自治、一揆による自衛、堺など自治都市の運営','戦国大名も検地・治水（信玄堤）・鉱山開発など「領民を豊かにする統治」で競争した']
+  },
+  build(g){
+    baseTerrain(g, 0x7d9758);
+    // 金閣
+    const kin = new THREE.Group();
+    box(kin, 8, 2.2, 6, 0xf5f5ef, 0, 1.4, 0);
+    box(kin, 7.4, 2.0, 5.4, 0xd9b84a, 0, 3.5, 0);
+    box(kin, 6.6, 1.8, 4.8, 0xd9b84a, 0, 5.4, 0);
+    cone(kin, 4.6, 1.8, 0x3a3f4a, 0, 7.2, 0, 4).rotation.y = Math.PI/4;
+    kin.position.set(-16, 0, -14); g.add(kin);
+    water(g, 26, 14, -14, -2, 0x3f6f8a);
+    // 戦火の京（応仁の乱）
+    box(g, 5, 2.5, 4, 0x5a4a3a, 20, 1.25, -10);
+    fire(g, 20, -10, 1.4); smoke(g, 20, 3, -10, 1.2);
+    box(g, 5, 2.5, 4, 0x5a4a3a, 28, 1.25, -4);
+    fire(g, 28, -4, 1.2); smoke(g, 28, 3, -4, 1);
+    // 対峙する軍勢
+    for(let i=0;i<4;i++) person(g, 0x3a5a8a, 14+i*3, 14, {radius:2, hat:'kabuto', spear:true});
+    for(let i=0;i<4;i++) person(g, 0x8a3a3a, 14+i*3, 26, {radius:2, hat:'kabuto', spear:true});
+    flagPole(g, 12, 14, 0x3a5a8a); flagPole(g, 12, 26, 0x8a3a3a);
+    person(g, 0x6a5a4a, -20, 14, {radius:4});
+    for(let i=0;i<8;i++) tree(g, -50+Math.random()*20, -30+Math.random()*30, 'pine', 1);
+    // ── 生活の営み（字幕付き） ──
+    label(g, '金閣 — 北山文化の象徴', -16, 10.6, -14, 1);
+    label(g, '応仁の乱 — 京都が焼け野原に', 24, 6.8, -7, .95);
+    // 茶室と茶の湯
+    box(g, 4, 2.2, 3.4, 0xa08b52, -28, 1.1, 4);
+    cone(g, 3.2, 1.4, 0x6b5a3a, -28, 2.9, 4, 4).rotation.y = Math.PI/4;
+    sitter(g, 0x4a5a3a, -29, 6.5, 0); sitter(g, 0x6a4a3a, -27, 6.5, 0);
+    label(g, '茶の湯・能・生け花 — 今に続く文化の誕生', -28, 5.4, 4, .9);
+    // 惣村の寄合
+    for(let i=0;i<5;i++){ const a=i/5*Math.PI*2; sitter(g, 0x96683d, -6+Math.cos(a)*2, 22+Math.sin(a)*2, -a+Math.PI/2); }
+    label(g, '惣村の寄合 — 村の掟を自分たちで決める', -6, 4.4, 22, .9);
+  }
+},
+{
+  id:'azuchi', name:'安土桃山時代', years:'1573年 〜 1603年',
+  y0:1573, y1:1603, sky:0xb2c8d8, ground:0x83a05c, pop:'推定 約1,200万人（1600年頃）',
+  info:{
+    life:['信長・秀吉による天下統一','城下町が発展、南蛮文化が流入','太閤検地と刀狩で兵農分離'],
+    industry:['楽市楽座で商業を自由化','石見銀山 — 世界の銀の約1/3を日本が産出','千利休の茶の湯、狩野派の障壁画'],
+    war:['長篠の戦い（1575年）— 鉄砲の大量運用（3,000挺説と1,000挺説あり・『信長公記』写本により異同）','本能寺の変（1582年）、朝鮮出兵（文禄・慶長の役）は失敗','関ヶ原の戦い（1600年）— 東軍約7〜9万 vs 西軍約8万（諸説）。小早川秀秋らの寝返りで半日で決着'],
+    problem:['課題: 100年続いた戦乱をどう終わらせ、二度と起こさせないか','解決: 太閤検地（経済基盤の掌握）・刀狩（武装解除）・兵農分離（身分の分離）の三点セット','「戦争ができない社会構造」を設計 — 続く江戸265年の平和の土台となった']
+  },
+  build(g){
+    baseTerrain(g, 0x83a05c);
+    castle(g, -8, -18, 5);
+    townRow(g, -30, 14, 5); townRow(g, -30, 26, 5);
+    // 鉄砲隊 vs 騎馬（長篠）
+    for(let i=0;i<6;i++){
+      const p = person(g, 0x2a2a3a, 14+i*2.5, 16, {hat:'kabuto'});
+      const gun = cyl(p, .05,.05, 2.2, 0x3a3020, .5, 1.6, 0, 5);
+      gun.rotation.x = Math.PI/2.4;
+    }
+    for(let i=0;i<3;i++) box(g, 16, 1.2, .2, 0x6b5636, 21, .9+i*0.01, 18.5+i*0.0); // 馬防柵
+    // 鉄砲の発砲閃光と硝煙
+    for(let i=0;i<6;i++){
+      const fl = new THREE.Mesh(new THREE.SphereGeometry(.22,6,5), new THREE.MeshBasicMaterial({ color:0xffb020, transparent:true, opacity:0 }));
+      fl.position.set(14.5+i*2.5, 2.0, 17.6); g.add(fl);
+      anim((t)=>{ const k = (t*1.2 + i*0.35) % 1; fl.material.opacity = k < .08 ? 1 : 0; fl.scale.setScalar(k < .08 ? 1+k*8 : 1); });
+    }
+    smoke(g, 17, 2.2, 17.5, .5);
+    for(let i=0;i<4;i++){
+      const horse = new THREE.Group();
+      box(horse, 2.2,1.1,.8, 0x5a4632, 0,1.5,0); sph(horse,.4,0x5a4632,1.3,2.3,0);
+      const rider = cyl(horse,.35,.45,1.2,0x8a3a3a,0,2.6,0,6); cone(horse,.4,.4,0x333340,0,3.5,0);
+      horse.position.set(16+i*3, 0, 32); g.add(horse);
+      anim((t)=>{ horse.position.z = 32 - (Math.sin(t*.5)*.5+.5)*8; horse.position.y = Math.abs(Math.sin(t*6))*.2; });
+    }
+    flagPole(g, 12, 16, 0x2a2a5a, 6); flagPole(g, 12, 34, 0x8a3a3a, 6);
+    fire(g, 34, 24, .9); smoke(g, 34, 2, 24, .8);
+    person(g, 0x6a4a3a, -26, 20, {radius:4, hat:'kasa'});
+    boat(g, 0, 185, 12, 0x4a3a2a, true);   // 南蛮船
+    // ── 生活の営み（字幕付き） ──
+    label(g, '天守 — 城下町を見下ろす権威の象徴', -8, 25, -18, 1.05);
+    label(g, '長篠型の戦い — 鉄砲隊と馬防柵 vs 騎馬', 18, 7, 24, .95);
+    label(g, '南蛮船 — 鉄砲・生糸・キリスト教が届く', 0, 7, 178, .95);
+    // 楽市楽座
+    stall(g, -18, 34, 0xd8b030, .2); stall(g, -13, 37, 0x3a5a8a, -.2); stall(g, -23, 37, 0x4a7d5f, .4);
+    label(g, '楽市楽座 — 誰でも自由に商売できる', -18, 5, 36, .95);
+    // 太閤検地
+    bendWorker(g, 0x2a2a3a, 4, 36, .8);
+    const rod = cyl(g, .04,.04, 3.2, 0x8a6b45, 6, 1.6, 36.5, 4);
+    rod.rotation.z = Math.PI/2;
+    label(g, '太閤検地 — 全国の田畑を同じ物差しで測る', 5, 4.2, 36, .9);
+  }
+},
+{
+  id:'edo', name:'江戸時代', years:'1603年 〜 1868年',
+  y0:1603, y1:1868, sky:0xbdd3e0, ground:0x87a35e, pop:'約3,100万人（18世紀・世界最大都市 江戸100万人）',
+  info:{
+    life:['約260年の泰平。江戸は人口100万の世界最大都市','庶民は「九尺二間」の裏長屋暮らし — 井戸端や共同便所を分かち合う濃密なご近所社会','夜の灯りは行灯 — 明るさは60W電球の50分の1ほど。菜種油は高価で、庶民はイワシの魚油で手元だけを照らした（蝋燭は高級品）','寿司・天ぷら・蕎麦・鰻の「江戸四大名物食」はいずれも屋台生まれ — 単身男性の多い江戸で外食文化が確立','寺子屋の普及で高い識字率。元禄文化（上方: 西鶴・近松・芭蕉）→ 化政文化（江戸: 北斎・広重・馬琴）','武士は藩校で学んだ — 幕末には全国255校。寺子屋と合わせて日本の教育熱の土台になった','浮世絵（錦絵）は版元・絵師・彫師・摺師の分業による多色刷り版画 — 庶民が気軽に買えた','貸本屋は天保期の江戸で800軒超 — 読書が庶民の娯楽に。歌舞伎・落語が大流行し、勧進相撲（江戸・大坂・京都の三都で興行）は今日の大相撲の起源となった','元禄期に友禅染が開花 — 小袖は現在の着物とほぼ同じ形に完成し、流行の文様を庶民も競った','人形浄瑠璃（文楽） — 近松門左衛門『曽根崎心中』（1703年 竹本座初演）が大当たりし、庶民の心を描く演劇が開花','園芸ブーム — 変化朝顔の育種に身分を問わず熱狂。染井村（駒込）の植木屋街は英国人フォーチュンが世界一と讃え、江戸末期にはソメイヨシノが生まれた','参勤交代で五街道（起点は日本橋、東海道は53宿）と宿場町が発達 — お蔭参り（1830年）では半年足らずで約430万人が伊勢へ — 人口の6〜7人に1人が旅した空前のブーム'],
+    industry:['新田開発で耕地倍増。備中鍬（3〜4本刃で深耕を可能に）・千歯こき（1日7〜12束を脱穀）など農具の改良が生産性を押し上げた','大坂は「天下の台所」— 堂島米会所（1730年公認）は会員制・清算機能を備えた世界初の組織的先物取引所','河村瑞賢が東廻り・西廻り航路を整備（1671-72年）— 菱垣廻船・樽廻船で全国が海運ネットワークに','九十九里の地曳網イワシ漁 — イワシは干鰯・〆粕に加工され、木綿や藍を育てる即効肥料「金肥」として高値で取引された','三貨制度（金・銀・銭） — 「東の金遣い・西の銀遣い」の違いが両替商と為替を高度に発達させた','三井越後屋の「現金掛け値なし」、株仲間が流通を組織化、両替商（三井・鴻池）の金融網','和算 — 関孝和はライプニッツと独立に行列式を考案し、円周率を小数11位まで算出（1681年頃、世界最早級の数値計算法）','和時計 — 季節で一刻の長さが変わる「不定時法」に合わせて西洋の機械時計を改造した職人技の結晶','瓦版 — 事件・天災を速報する木版の一枚新聞。今日の新聞の原型','朱印船貿易（1604〜1635年、350隻超が渡航） — アユタヤ日本町には1,500人超が暮らし、山田長政は現地王朝の高官に。鎖国で幕を閉じた','鎖国下でも長崎・対馬・薩摩・松前の四つの口で交易'],
+    war:['薩摩藩の琉球侵攻（1609年） — 琉球王国は日中両属に','大坂の陣（1614-15年）— 冬の陣は幕府約20万 vs 豊臣約10万。夏の陣で豊臣氏滅亡。同年の一国一城令で3,000超あった城は大幅に削減された','島原・天草一揆（1637年）を最後に本土では約230年間大きな戦闘が消滅。蝦夷地ではシャクシャインの戦い（1669年、松前藩の交易支配へのアイヌ最大の蜂起）','幕末: 黒船来航（1853年）→ 戊辰戦争（1868年）'],
+    problem:['背景: 江戸時代は「小氷期」（14〜19世紀半ば）の寒冷期 — マウンダー極小期（1645-1715年）など太陽活動低下と重なり、冷害が飢饉の温床に。比較的温暖だった元禄期（17世紀末）には文化が花開いた',
+'課題: 享保・天明・天保の三大飢饉（天明では数十万人が死亡）、幕府財政難、黒船に象徴される列強の外圧','宝永地震（1707年、記録上日本最大級）の49日後に富士山が宝永大噴火 — 江戸にも大量の降灰。幕府は全国から「諸国高役金」を徴収して被災地復興を支援','安政江戸地震（1855年）後は瓦版や鯰絵が広まり、庶民の防災意識と復興景気を生んだ','解決: 囲米（備蓄）とサツマイモ栽培（青木昆陽）、三大改革、リサイクルが高度に発達した循環型社会','利根川東遷（1594〜1654年、家康の命で伊奈家3代が約60年） — 江戸湾に注いでいた利根川を銚子へ付け替えた大土木事業。洪水から江戸を守り、新田開発と舟運を生んだ（本格開始は1621年とする説も）','天然痘には蘭方医が挑んだ — 緒方洪庵が除痘館（1849年）で種痘を広め、お玉ヶ池種痘所（1858年）はのちの東京大学医学部の起源に','外圧には大政奉還（1867年）と江戸無血開城 — 勝海舟と西郷隆盛の交渉で内戦を最小限に抑えた政権移行を実現']
+  },
+  build(g){
+    baseTerrain(g, 0x87a35e);
+    castle(g, -22, -22, 4);
+    townRow(g, -12, 6, 6); townRow(g, -12, 16, 6); townRow(g, -12, 26, 6);
+    // 日本橋風の橋
+    const bridge = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 4, 16, 1, true, 0, Math.PI), M(0xc9a86a));
+    bridge.rotation.z = Math.PI/2; bridge.rotation.y = Math.PI/2;
+    bridge.position.set(8, 0, 40); g.add(bridge);
+    water(g, 70, 10, 0, 40, 0x3f6f8a);
+    boat(g, -18, 40, 6); boat(g, 24, 40, 6);
+    // 行き交う人々
+    person(g, 0x4a5a8a, 0, 10, {radius:9, hat:'kasa'});
+    person(g, 0x7a4a6a, 6, 20, {radius:7, hat:'kasa'});
+    person(g, 0x3a6a5a, -6, 30, {radius:8});
+    person(g, 0x8a6a3a, 12, 12, {radius:5, hat:'kasa'});
+    person(g, 0x5a5a5a, -14, 20, {radius:6});
+    // 火の見櫓
+    for(const [dx,dz] of [[-1,-1],[1,-1],[-1,1],[1,1]]) cyl(g,.12,.12,9,0x5a4632, 30+dx, undefined, 0+dz, 5);
+    box(g, 3, 1.5, 3, 0x8a7355, 30, 9.6, 0);
+    // 黒船（幕末）
+    const kurofune = new THREE.Group();
+    box(kurofune, 14, 2.5, 4, 0x1f1f24, 0, 2, 0);
+    cyl(kurofune, .5,.6, 3.5, 0x1f1f24, 0, 4.8, 0, 8);
+    kurofune.position.set(20, 0, 185); g.add(kurofune);
+    smoke(g, 20, 7, 185, 1.4);
+    anim((t)=>{ kurofune.position.y = Math.sin(t)*0.2; });
+    // ── 生活の営み（字幕付き） ──
+    label(g, '江戸城下 — 人口100万の世界最大都市', -22, 23, -22, 1.05);
+    label(g, '黒船来航（1853年） — 泰平の眠りを覚ます', 20, 8.5, 178, .95);
+    // 寺子屋
+    box(g, 6, 2.6, 5, 0xcbb38a, 24, 1.3, 26);
+    cone(g, 4.6, 1.6, 0x4a4f58, 24, 3.4, 26, 4).rotation.y = Math.PI/4;
+    for(let i=0;i<4;i++) sitter(g, [0x8a3a3a,0x3a5a8a,0x4a7d5f,0x7a4a6a][i], 22.6+i*0.9, 29.5, Math.PI);
+    sitter(g, 0x2a2a3a, 24, 31.4, 0);
+    label(g, '寺子屋 — 読み書きそろばん、世界屈指の就学率', 24, 5.8, 27, .95);
+    // 屋台と振売
+    stall(g, 2, 36, 0x8a3a3a, 0); stall(g, 8, 36, 0x3a5a8a, 0);
+    label(g, '屋台 — 寿司・天ぷら・蕎麦の外食文化', 5, 5, 36, .9);
+    // 歌舞伎小屋
+    box(g, 8, 4, 6, 0xb43b28, -32, 2, 8);
+    flagPole(g, -35, 11.5, 0xd8b030, 5); flagPole(g, -32, 11.5, 0xd8b030, 5); flagPole(g, -29, 11.5, 0xd8b030, 5);
+    label(g, '歌舞伎小屋 — 庶民の娯楽の殿堂', -32, 7, 8, .9);
+    // 湯屋
+    cyl(g, .35,.45, 6, 0x7a4a3a, -30, undefined, 20, 8);
+    smoke(g, -30, 6.2, 20, .7);
+    label(g, '湯屋（銭湯） — 庶民の社交場', -30, 8.4, 20, .85);
+    label(g, '火の見櫓 — 「火事と喧嘩は江戸の華」に備える', 30, 12.5, 0, .85);
+    // 堂島米会所（米俵の山と商人たち）
+    for(let i=0;i<6;i++){
+      const bale = cyl(g, .5, .5, 1.2, 0xc9b878, 16+(i%3)*1.3, .5+Math.floor(i/3)*1.0, 34, 8);
+      bale.rotation.z = Math.PI/2;
+    }
+    sitter(g, 0x4a5a8a, 15, 36.5, .4); sitter(g, 0x7a4a3a, 18.5, 36.5, -.4);
+    label(g, '堂島米会所（1730年） — 世界初の組織的先物取引所', 17, 4.6, 35, .95);
+    // 絵草紙屋（浮世絵・貸本）
+    stall(g, -4, 42, 0x4a7d5f, 0);
+    for(let i=0;i<3;i++){
+      const print = new THREE.Mesh(new THREE.PlaneGeometry(.5,.7), new THREE.MeshBasicMaterial({ color: [0xc23030,0x2a5aa8,0xd8b030][i], side: THREE.DoubleSide }));
+      print.position.set(-4.8+i*.8, 1.9, 41.2); g.add(print);
+    }
+    label(g, '絵草紙屋 — 浮世絵と貸本（江戸に800軒超）', -4, 4.6, 42, .9);
+  }
+},
+{
+  id:'meiji', name:'明治時代', years:'1868年 〜 1912年',
+  y0:1868, y1:1912, sky:0xb5c9d6, ground:0x8a9a68, pop:'約3,300万 → 約5,000万人',
+  info:{
+    life:['文明開化 — ガス灯・洋服・牛鍋・断髪','学制（1872年）で国民皆学へ — 就学率は1873年28%→日清・日露戦争期に急伸→1910年にほぼ100%。東京大学（1877年）は帝国大学（1886年）となり近代科学研究の拠点に','鉄道開業（1872年 新橋〜横浜）、前島密の郵便制度（1871年開始、73年全国均一料金 —「郵便」「切手」の語も彼の選定）と新聞が生活を一変。明治改暦（明治5年12月3日＝1873年1月1日）で太陽暦と1日24時間の定時法へ','北海道開拓使（1869年）と琉球処分（1879年、沖縄県設置）で近代国家の領域が確定 — 一方でアイヌ・琉球の人々は同化政策に直面した','一世一元の制（1868年） — 天皇一代に元号一つと定まり、明治・大正・昭和・平成・令和と続く'],
+    industry:['殖産興業 — 富岡製糸場（1872年）は繰糸器300釜・繰糸所約140mの当時世界最大級（仏・伊の標準は150釜程度）','八幡製鉄所（1901年）で重工業化','新貨条例（1871年）で通貨単位「円」が誕生、日本銀行（1882年設立）が紙幣発行を一元化','鉄道は新橋〜横浜約29km（1872年）から全国へ — 鉄道国有法（1906年）で私鉄17社を買収し国鉄は約7,100kmに','本木昌造の新町活版所（1870年、日本初の民間活版印刷）が新聞・出版の近代化を支えた','渋沢栄一が約500社の設立に関与。財閥形成、生糸輸出世界一へ'],
+    war:['戊辰戦争・西南戦争（1877年、最後の内戦）','日清戦争（1894-95年）勝利で台湾獲得','日露戦争（1904-05年）— 動員約109万人・死者約8万4千人の総力戦。日本海海戦で勝利し列強の一角へ'],
+    problem:['課題: 不平等条約（治外法権・関税自主権喪失）と列強の植民地化圧力、士族の没落','解決: 岩倉使節団で世界を実見し「まず国力」と決断。法典整備と粘り強い交渉で治外法権撤廃（1894年）・関税自主権回復（1911年）','一方、急速な工業化は足尾銅山鉱毒事件（田中正造の闘い）を生み、産業と環境の相克が始まった','神仏分離令（1868年）で1,000年続いた神仏習合が終焉 — 廃仏毀釈の嵐で多くの寺院・仏像が失われた（薩摩藩では1,600超の寺院が30未満に）']
+  },
+  build(g){
+    baseTerrain(g, 0x8a9a68);
+    // 煉瓦街
+    building(g, -20, -10, 8, 7, 6, 0x9a4a3a);
+    building(g, -10, -10, 8, 6, 6, 0xa85a48);
+    building(g, 0, -10, 8, 8, 6, 0x8a4a3a);
+    // 工場（富岡製糸場風）＋煙突
+    building(g, 22, -14, 16, 5, 8, 0xb08968);
+    cyl(g, .8, 1, 14, 0x7a4a3a, 30, undefined, -16, 8);
+    smoke(g, 30, 14, -16, 1.6);
+    // 蒸気機関車
+    const train = new THREE.Group();
+    box(train, 5, 2.4, 2.2, 0x22222a, 0, 1.6, 0);
+    cyl(train, .9,.9, 4, 0x22222a, -3.5, 1.8, 0, 10).rotation.z = Math.PI/2;
+    cyl(train, .35,.4, 1.6, 0x22222a, -5, 3.2, 0, 8);
+    for(let i=0;i<3;i++) box(train, 4.2, 2, 2.1, 0x4a3a2e, 4+i*4.6, 1.5, 0);
+    train.position.set(0, .4, 20); g.add(train);
+    box(g, 120, .25, .4, 0x555, 0, .12, 19.2); box(g, 120, .25, .4, 0x555, 0, .12, 20.8);
+    anim((t)=>{ train.position.x = -55 + ((t*7) % 115); });
+    smoke(g, 0, 4, 20, 1.2);
+    // ガス灯と人力車
+    for(let i=0;i<5;i++){ cyl(g,.08,.08,3.4,0x2a2a30,-24+i*10,undefined,2,6); sph(g,.3,0xffe9a8,-24+i*10,3.6,2); }
+    person(g, 0x2a2a3a, -6, 8, {radius:6});
+    person(g, 0x6a3a4a, 6, 10, {radius:7});
+    person(g, 0x3a4a6a, -14, 12, {radius:5, hat:'kasa'});
+    // 軍艦
+    const ship = new THREE.Group();
+    box(ship, 18, 2.5, 4.5, 0x3f4650, 0, 2, 0);
+    cyl(ship, .5,.6, 3.5, 0x3f4650, -2, 4.8, 0, 8);
+    box(ship, 3, 1.5, 2, 0x3f4650, 4, 4, 0);
+    ship.position.set(-10, 0, 185); g.add(ship);
+    smoke(g, -12, 7, 185, 1.2);
+    // ── 生活の営み（字幕付き） ──
+    label(g, '煉瓦街とガス灯 — 文明開化', -10, 11, -10, 1);
+    label(g, '製糸工場（繰糸器300釜・世界最大級） — 工女が生糸を生産、輸出世界一へ', 22, 9, -14, .95);
+    label(g, '陸蒸気 — 新橋〜横浜（1872年開業）', 0, 6.8, 20, .9);
+    // 人力車
+    const riki = new THREE.Group();
+    box(riki, 1.2, 1.1, 1, 0x2a2a30, 0, 1.3, 0);
+    const rw1 = cyl(riki, .7,.7,.15, 0x6b5636, 0, .7, .62); rw1.rotation.x = Math.PI/2;
+    const rw2 = cyl(riki, .7,.7,.15, 0x6b5636, 0, .7, -.62); rw2.rotation.x = Math.PI/2;
+    box(riki, 1.8, .08, .08, 0x8a6b45, -1.4, .9, .4);
+    box(riki, 1.8, .08, .08, 0x8a6b45, -1.4, .9, -.4);
+    riki.position.set(-8, 0, 6); g.add(riki);
+    anim((t)=>{ riki.position.x = -8 + Math.sin(t*.5)*10; });
+    label(g, '人力車 — 街の新しい足', -8, 3.8, 6, .85);
+    // 小学校
+    building(g, 14, 6, 7, 4, 5, 0xd8cdb0);
+    label(g, '小学校 — 学制（1872年）で国民皆学へ', 14, 6.8, 6, .9);
+    // 牛鍋屋
+    box(g, 4, 3, 4, 0xcbb38a, -26, 1.5, 10);
+    label(g, '牛鍋屋 — 文明開化の味', -26, 5.4, 10, .85);
+  }
+},
+{
+  id:'taisho', name:'大正時代', years:'1912年 〜 1926年',
+  y0:1912, y1:1926, sky:0xb8ccd8, ground:0x8a9a68, pop:'約5,000万 → 約6,000万人',
+  info:{
+    life:['大正デモクラシー — 普通選挙運動・政党政治','モボ・モガ、カフェー、活動写真（映画）','関東大震災（1923年）で東京・横浜が壊滅'],
+    industry:['第一次大戦の特需で工業国へ（大戦景気）','ラジオ放送開始（1925年）','都市化と郊外電車・百貨店'],
+    war:['第一次世界大戦に参戦（1914年 対独宣戦）','シベリア出兵','米騒動（1918年）— 社会運動の高まり'],
+    problem:['課題: 関東大震災（1923年、死者・行方不明約10万5千人）で東京・横浜が壊滅。スペイン風邪の大流行（国内死者約39万人）','解決: 後藤新平の帝都復興計画 — 幹線道路・隅田川橋梁群・復興小学校が今日の東京の骨格に','スペイン風邪ではマスク・うがい励行など近代的公衆衛生キャンペーンが初の全国展開']
+  },
+  build(g){
+    baseTerrain(g, 0x8a9a68);
+    building(g, -24, -12, 9, 9, 7, 0x9a8a78, true);
+    building(g, -12, -12, 9, 11, 7, 0x8a8a8a, true);
+    building(g, 0, -12, 9, 8, 7, 0xa89a80, true);
+    building(g, 12, -12, 9, 12, 7, 0x7a8a9a, true);   // 丸ビル風
+    // 路面電車
+    const tram = new THREE.Group();
+    box(tram, 7, 2.8, 2.4, 0x7a3a2a, 0, 1.9, 0);
+    box(tram, 6.4, 1, 2.0, 0xd8cdb0, 0, 2.9, 0);
+    cyl(tram, .05,.05, 2.2, 0x333, 0, 4.4, 0, 4).rotation.z = .4;
+    tram.position.set(0, .3, 8); g.add(tram);
+    box(g, 120, .2, .3, 0x555, 0, .1, 7.4); box(g, 120, .2, .3, 0x555, 0, .1, 8.6);
+    anim((t)=>{ tram.position.x = 50 - ((t*5) % 100); });
+    // カフェーと街灯
+    box(g, 6, 3.5, 5, 0xc9b898, 24, 1.75, 4);
+    box(g, 5, 1, .2, 0x8a3a3a, 24, 3.2, 6.6);
+    for(let i=0;i<5;i++){ cyl(g,.08,.08,3.8,0x2a2a30,-24+i*11,undefined,14,6); sph(g,.32,0xfff2c8,-24+i*11,4.1,14); }
+    person(g, 0x3a3a4a, -6, 18, {radius:7});
+    person(g, 0x8a4a5a, 4, 20, {radius:6});
+    person(g, 0x4a5a3a, 14, 16, {radius:5});
+    person(g, 0x6a6a7a, -16, 22, {radius:6});
+    // ── 生活の営み（字幕付き） ──
+    label(g, 'オフィス街 — サラリーマンと職業婦人の登場', -6, 14, -12, 1);
+    label(g, '市電で通勤 — 都市生活の始まり', 0, 6.4, 8, .9);
+    label(g, 'カフェー — モボ・モガの社交場', 24, 6.2, 4, .9);
+    // 活動写真館
+    box(g, 7, 4.5, 6, 0x6a5a6a, -26, 2.25, 4);
+    box(g, 5, 1.4, .2, 0xf2ead5, -26, 3.4, 7.1);
+    label(g, '活動写真館 — 映画に熱中する大衆', -26, 6.6, 4, .9);
+    // ラジオを囲む家族
+    box(g, 1.6, .8, 1.2, 0x8a7355, 12, .4, 24);
+    box(g, .9, .7, .5, 0x4a3a2e, 12, 1.15, 24);
+    for(let i=0;i<3;i++) sitter(g, [0x3a3a4a,0x8a4a5a,0x4a5a3a][i], 10.5+i*1.2, 26, Math.PI);
+    label(g, 'ラジオ放送開始（1925年） — 一家で聴く', 12, 4, 25, .9);
+  }
+},
+{
+  id:'showa', name:'昭和時代', years:'1926年 〜 1989年',
+  y0:1926, y1:1989, sky:0xa8bfcf, ground:0x8a9a70, pop:'約6,000万 → 1億2,300万人（1967年に1億突破）',
+  info:{
+    life:['戦前: 恐慌と統制 → 戦後: 焼け跡から復興','三種の神器（TV・洗濯機・冷蔵庫）→ 3C','日本住宅公団（1955年）の団地とダイニングキッチン（DK）が新しい暮らしの象徴に。霞が関ビル（1968年、147m）で超高層時代が開幕','女性参政権が実現（1946年総選挙で女性議員39名誕生）。男女雇用機会均等法（1985年）で職場の平等へ','国民皆保険・皆年金（1961年） — 誰もが医療を受けられる制度が世界一の長寿国の土台に','東京オリンピック（1964年）・大阪万博（1970年）'],
+    industry:['高度経済成長（実質年率約10%、1955-73年）— 所得倍増計画（1960年）は目標10年を約7年で達成','東海道新幹線（1964年）、自動車・家電が世界へ','品種改良の結晶コシヒカリ（1944年交配・1956年命名） — 冷害に強く美味い米が食卓を変え、今も主力品種','八郎潟干拓（1957〜77年） — 琵琶湖に次ぐ日本第2の湖を20年かけて干拓し約1万7千haの農地に。大潟村（1964年発足）は食糧増産の象徴','半導体は1988年に世界シェア50.3%（DRAMは約8割）で頂点 — 日米貿易摩擦の象徴にもなった','GNP世界第2位（1968年）→ バブル景気（1986-91年）'],
+    war:['満州事変（1931年）→ 日中戦争（1937年〜）→ 太平洋戦争（1941年 真珠湾攻撃）','ミッドウェー海戦（1942年）で空母4隻を喪失し戦局が転換。東京大空襲（1945年3月10日、死者約8〜10万人 — 単独空襲で世界史上最大）、沖縄戦（戦没者約20万人・県民の約4人に1人）、広島・長崎への原爆投下 → 敗戦','戦後は日本国憲法のもと戦争放棄。戦没者約310万人の記憶が平和主義の原点に'],
+    problem:['課題: 敗戦による国土荒廃（戦没者約310万人）。高度成長期には四大公害病（水俣病・イタイイタイ病・四日市ぜんそく・新潟水俣病）。二度の石油危機','解決: 平和憲法下で経済に集中（吉田ドクトリン）。サンフランシスコ平和条約（1951年調印・48カ国署名、52年発効）で主権を回復し、1956年国連加盟で国際社会に復帰。公害対策基本法（1967年）・環境庁設置（1971年）','石油危機は省エネ技術で克服し、かえって日本製品の国際競争力を高めた — 危機を技術革新に転換']
+  },
+  build(g){
+    baseTerrain(g, 0x8a9a70);
+    // 東京タワー
+    const tower = new THREE.Group();
+    const towerMat = M(0xd84a2a);
+    for(let i=0;i<4;i++){
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(.18,.3,30,6), towerMat);
+      const a = i*Math.PI/2 + Math.PI/4;
+      leg.position.set(Math.cos(a)*3.4, 15, Math.sin(a)*3.4);
+      leg.rotation.z = Math.cos(a)*0.16; leg.rotation.x = -Math.sin(a)*0.16;
+      leg.castShadow = true; tower.add(leg);
+    }
+    box(tower, 5, 1.4, 5, 0xf2efe6, 0, 16, 0);
+    cyl(tower, .35,.9, 14, 0xd84a2a, 0, 30, 0, 6);
+    tower.position.set(-24, 0, -20); g.add(tower);
+    // ビル群
+    building(g, -6, -16, 7, 14, 7, 0x8fa3b5, true);
+    building(g, 4, -18, 7, 18, 7, 0x9fb0c0, true);
+    building(g, 14, -14, 7, 12, 7, 0x8a9aa8, true);
+    building(g, 24, -18, 7, 16, 7, 0xa0aab5, true);
+    // 団地
+    for(let i=0;i<3;i++) building(g, -30+i*10, 14, 8, 8, 4, 0xd8d5cc, true);
+    // 新幹線0系
+    const shink = new THREE.Group();
+    const nose = sph(shink, 1.1, 0xf2f5f7, -4.4, 1.5, 0); nose.scale.set(1.8,1,1);
+    for(let i=0;i<4;i++) box(shink, 4.4, 2, 2.2, 0xf2f5f7, i*4.6-2, 1.5, 0);
+    for(let i=0;i<4;i++) box(shink, 4.4, .5, 2.24, 0x2a5aa8, i*4.6-2, 1.1, 0);
+    shink.position.set(0, .3, 28); g.add(shink);
+    box(g, 140, .3, .4, 0x666, 0, .15, 27.2); box(g, 140, .3, .4, 0x666, 0, .15, 28.8);
+    anim((t)=>{ shink.position.x = -65 + ((t*22) % 135); });
+    // 自動車
+    for(let i=0;i<3;i++){
+      const car = new THREE.Group();
+      box(car, 2.6, .8, 1.3, [0xd8d5cc,0xc23030,0x3a5a8a][i], 0, .8, 0);
+      box(car, 1.4, .6, 1.2, 0x9ab0c0, -0.1, 1.4, 0);
+      car.position.set(i*8-8, 0, 38); g.add(car);
+      anim((t)=>{ car.position.x = -50 + ((t*10 + i*40) % 100); });
+    }
+    box(g, 120, .1, 4, 0x4a4a50, 0, .05, 38);
+    person(g, 0x3a3a4a, 0, 8, {radius:8});
+    person(g, 0x8a4a5a, 10, 6, {radius:6});
+    person(g, 0x4a5a3a, -10, 10, {radius:7});
+    // ── 生活の営み（字幕付き） ──
+    label(g, '東京タワー（1958年） — 復興と成長の象徴', -24, 35, -20, 1.05);
+    label(g, '新幹線0系（1964年） — 世界初の高速鉄道', 0, 6.8, 28, .95);
+    label(g, '団地 — 「一億総中流」の暮らし', -20, 10.6, 14, .95);
+    // 街頭テレビ
+    box(g, 1.4, 1.1, .8, 0x2a2a30, 12, 2.2, 16);
+    cyl(g, .12,.12, 1.7, 0x4a4a50, 12, .85, 16, 6);
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(1.05, .75), new THREE.MeshBasicMaterial({ color: 0xbfe8ff }));
+    scr.position.set(12, 2.25, 16.42); g.add(scr);
+    anim((t)=>{ scr.material.color.setHSL(.55, .3, .6 + Math.sin(t*7)*.15); });
+    for(let i=0;i<6;i++) sitter(g, [0x3a3a4a,0x5a4a3a,0x8a4a5a,0x4a5a3a,0x6a6a7a,0x7a5a4a][i], 10+(i%3)*1.6, 18.6+Math.floor(i/3)*1.4, Math.PI);
+    label(g, '街頭テレビ — 力道山・プロレスに沸く', 12, 5.2, 17, .95);
+    // 家電店（三種の神器）
+    box(g, 6, 3, 5, 0xf2efe6, 28, 1.5, 10);
+    box(g, 6, .8, .2, 0xc23030, 28, 3.2, 12.6);
+    label(g, '三種の神器 — テレビ・洗濯機・冷蔵庫が家庭へ', 28, 5.6, 10, .9);
+    // 戦争の記憶（原爆ドーム風の慰霊のモニュメント）
+    const mem = new THREE.Group();
+    box(mem, 3.4, 4, 2.6, 0x8a8578, 0, 2, 0);
+    const domeF = new THREE.Mesh(new THREE.SphereGeometry(1.5, 10, 6, 0, Math.PI*2, 0, Math.PI/2), M(0x6a6558, {wireframe:true}));
+    domeF.position.set(0, 4.6, 0); mem.add(domeF);
+    mem.position.set(-34, 0, 2); g.add(mem);
+    label(g, '戦争の記憶 — 戦没者約310万人。原爆ドームが伝える平和の誓い', -34, 8, 2, .95);
+  }
+},
+{
+  id:'heisei', name:'平成時代', years:'1989年 〜 2019年',
+  y0:1989, y1:2019, sky:0x9db8cc, ground:0x8a9a70, pop:'約1億2,300万 → ピーク1億2,808万人（2008年）',
+  info:{
+    life:['バブル崩壊 →「失われた20年」','携帯電話・インターネットが生活を一変','姫路城・法隆寺が日本初の世界遺産に（1993年） — 現存12天守は江戸初期3,000超の城の貴重な生き残り','阪神・淡路大震災（1995年）、東日本大震災（2011年）'],
+    industry:['IT革命 — PC・ケータイ・スマホ（2008年 iPhone上陸）','ゲーム・アニメなどコンテンツ産業が世界へ','製造業の海外移転とデフレ経済'],
+    war:['戦争のない時代 — 憲法9条下で自衛隊のPKO参加（1992年〜）','湾岸戦争への資金協力、イラク復興支援','テロ・災害対応が安全保障の課題に'],
+    problem:['課題: 阪神・淡路大震災（1995年、死者6,434人）、地下鉄サリン事件、東日本大震災（2011年、死者・行方不明約2万2千人、原発事故）、長期デフレ','解決: 阪神・淡路では約137万人が活動した「ボランティア元年」→ NPO法（1998年）成立。耐震基準強化・緊急地震速報（2007年、世界初の全国運用）','東日本大震災を機に再生可能エネルギー拡大へ — 災害のたびに制度と技術を進化させた']
+  },
+  build(g){
+    baseTerrain(g, 0x8a9a70);
+    // 超高層ビル群（新宿風）
+    building(g, -26, -20, 8, 26, 8, 0x7a90a5, true);
+    building(g, -14, -24, 9, 32, 9, 0x8aa0b5, true);
+    building(g, -2, -18, 8, 22, 8, 0x90a8b8, true);
+    building(g, 10, -24, 10, 36, 10, 0x7a95ad, true);   // 都庁風ツイン
+    building(g, 22, -20, 8, 28, 8, 0x859bb0, true);
+    building(g, 32, -14, 7, 18, 7, 0x8fa5b8, true);
+    // レインボーブリッジ風
+    const bw = 70;
+    box(g, bw, .8, 3, 0xd8d5cc, 0, 8, 160);
+    for(const bx of [-25, 25]){
+      cyl(g, .5,.7, 20, 0xd8d5cc, bx, undefined, 158.6, 6);
+      cyl(g, .5,.7, 20, 0xd8d5cc, bx, undefined, 161.4, 6);
+    }
+    // 電車（通勤）
+    const trainH = new THREE.Group();
+    for(let i=0;i<5;i++){ box(trainH, 4.4, 2.2, 2.2, 0xe8e8e8, i*4.6, 1.6, 0); box(trainH, 4.4, .5, 2.24, 0x2a9a5a, i*4.6, 1.2, 0); }
+    trainH.position.set(0, .3, 20); g.add(trainH);
+    box(g, 140, .3, .4, 0x666, 0, .15, 19.2); box(g, 140, .3, .4, 0x666, 0, .15, 20.8);
+    anim((t)=>{ trainH.position.x = -65 + ((t*16) % 135); });
+    // コンビニ
+    box(g, 7, 3, 5, 0xf2f2f2, 26, 1.5, 8);
+    box(g, 7, .7, .2, 0x2a7ac0, 26, 3.0, 10.6);
+    person(g, 0x3a3a4a, 0, 8, {radius:8});
+    person(g, 0x5a5a6a, 10, 10, {radius:6});
+    person(g, 0x7a5a6a, -12, 6, {radius:7});
+    person(g, 0x4a6a7a, 18, 12, {radius:5});
+    // ── 生活の営み（字幕付き） ──
+    label(g, '超高層ビル群 — 新宿新都心', -2, 41, -20, 1.1);
+    label(g, 'コンビニ — 24時間の社会インフラ', 26, 5.6, 8, .95);
+    label(g, '通勤電車 — 満員の朝', 0, 6.2, 20, .9);
+    // 携帯・スマホを見ながら歩く人
+    for(let i=0;i<3;i++){
+      const p = person(g, [0x3a3a4a,0x6a5a6a,0x4a6a7a][i], -6+i*5, 14, {radius:4, speed:.5});
+      const ph = new THREE.Mesh(new THREE.PlaneGeometry(.22,.34), new THREE.MeshBasicMaterial({ color: 0x9fd8ff }));
+      ph.position.set(.42, 1.7, .3); p.add(ph);
+    }
+    label(g, 'ケータイ・スマホが生活を一変させる', -1, 5, 14, .95);
+    // ゲーム・アニメショップ
+    box(g, 6, 3.4, 5, 0xe8e8f2, -28, 1.7, 8);
+    box(g, 6, .8, .2, 0xc23030, -28, 3.4, 10.6);
+    label(g, 'ゲーム・アニメ — 世界を魅了するソフトパワー', -28, 6, 8, .95);
+  }
+},
+{
+  id:'reiwa', name:'令和時代', years:'2019年 〜 令和8年（2026）',
+  y0:2019, y1:2026, sky:0x92b2ca, ground:0x8a9a70, pop:'約1億2,400万人（減少局面・高齢化率29%超）',
+  info:{
+    life:['「令和」は大化（645年）から数えて248番目の元号 — 万葉集を典拠とする初の国書由来（元号法1979年に基づく改元）','コロナ禍（2020-23年）でテレワーク・オンライン化が定着','東京オリンピック2020（2021年開催）','大阪・関西万博（2025年）が閉幕 — 一般来場者約2,557万人で1970年大阪万博に次ぐ国内2位の規模','高市早苗が憲政史上初の女性首相に（2025年10月） — 卑弥呼・推古から続く女性史に新たな一頁','人口減少・少子高齢化が最大の課題に','平均寿命は男81歳・女87歳（2022年）と世界最高水準 — 明治期の約44歳からほぼ倍増した'],
+    industry:['生成AI・ロボティクスへの投資が加速。半導体は世界シェア約1割まで低下したが、TSMC熊本工場（2024年開所）とラピダスの2nm挑戦（2027年量産目標）で復権を期す','再生可能エネルギーとEVシフト','宇宙（H3ロケット・SLIM月面着陸）などの新産業','日本のノーベル賞は31人・1団体に（2025年、非欧米で最多）。自然科学3賞は27人で世界5位 — 基礎科学の蓄積が実を結び続ける','創業100年超の企業数で世界一の「老舗大国」 — 1000年超の企業も7社（最古は飛鳥時代創業の金剛組）'],
+    war:['戦後81年、直接の戦争はなし','ウクライナ・中東情勢を受け防衛力を強化','サイバー・経済安全保障が新たな戦線に'],
+    problem:['能登半島地震（2024年1月1日、M7.6・最大震度7） — 元日の発災で死者241人（その後も災害関連死の認定が続いた）。半島地形での孤立集落支援という新たな防災課題を提起し、復旧・復興が続く',
+'課題: パンデミック、人口減少と労働力不足、気候変動、AI時代への適応 — 人類共通の課題に直面','解決（進行中）: ワクチンと協調行動でコロナ禍を克服、危機がデジタル化を10年分加速。AI・ロボットと多様な人材の活躍で労働力不足に対応','縄文から1万6千年 — 危機のたびに技術と社会の仕組みを革新して乗り越えてきた歴史は、令和8年（2026年）のいまも続いている']
+  },
+  build(g){
+    baseTerrain(g, 0x8a9a70);
+    // スカイツリー
+    const sky = new THREE.Group();
+    cyl(sky, .8, 2.4, 44, 0xdfe6ea, 0, 22, 0, 6);
+    cyl(sky, 2.6, 2.9, 1.6, 0xcfd8de, 0, 30, 0, 10);
+    cyl(sky, 1.9, 2.2, 1.4, 0xcfd8de, 0, 38, 0, 10);
+    cyl(sky, .15,.3, 12, 0xdfe6ea, 0, 50, 0, 6);
+    sky.position.set(-28, 0, -24); g.add(sky);
+    // 現代ビル群
+    building(g, -12, -20, 9, 24, 9, 0x84a0b5, true);
+    building(g, 0, -24, 10, 34, 10, 0x7a95ad, true);
+    building(g, 12, -18, 8, 20, 8, 0x90a8b8, true);
+    building(g, 24, -24, 10, 30, 10, 0x85a0b8, true);
+    // ガラスドーム風の低層＋緑化屋上
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(5, 14, 10, 0, Math.PI*2, 0, Math.PI/2), M(0xa8cce0,{transparent:true,opacity:.7}));
+    dome.position.set(30, 0, 0); g.add(dome);
+    // ソーラーパネル
+    for(let i=0;i<4;i++){
+      const p = box(g, 4, .12, 2.4, 0x1f3a5a, -30+i*5, 1.1, 16);
+      p.rotation.x = -.5;
+      cyl(g, .1,.1,1,0x888, -30+i*5, .5, 16.8, 5);
+    }
+    // ドローン
+    for(let i=0;i<3;i++){
+      const d = new THREE.Group();
+      box(d, .8,.25,.8, 0x2a2a30, 0,0,0);
+      for(const [dx,dz] of [[-.6,-.6],[.6,-.6],[-.6,.6],[.6,.6]]){
+        const rotor = cyl(d, .35,.35,.04, 0x555, dx, .18, dz, 6);
+        anim((t)=>{ rotor.rotation.y = t*30; });
+      }
+      d.position.set(i*10-8, 10+i*2, 10); g.add(d);
+      anim((t)=>{ d.position.y = 10+i*2 + Math.sin(t+i)*1.2; d.position.x = i*10-8 + Math.cos(t*.5+i)*6; });
+    }
+    // 新幹線N700風
+    const shinkR = new THREE.Group();
+    const noseR = sph(shinkR, 1.0, 0xf2f5f7, -4.6, 1.4, 0); noseR.scale.set(2.4,.9,1);
+    for(let i=0;i<4;i++){ box(shinkR, 4.4, 1.9, 2.2, 0xf2f5f7, i*4.6-2, 1.45, 0); box(shinkR, 4.4, .4, 2.24, 0x2a6ab0, i*4.6-2, 2.1, 0); }
+    shinkR.position.set(0, .3, 30); g.add(shinkR);
+    box(g, 140, .3, .4, 0x666, 0, .15, 29.2); box(g, 140, .3, .4, 0x666, 0, .15, 30.8);
+    anim((t)=>{ shinkR.position.x = -65 + ((t*26) % 135); });
+    // 風力発電（洋上）
+    for(let i=0;i<3;i++){
+      const wt = new THREE.Group();
+      cyl(wt, .25,.4, 16, 0xeef2f5, 0, 8, 0, 8);
+      const hub = new THREE.Group();
+      for(let b=0;b<3;b++){
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(.25, 6, .5), M(0xeef2f5));
+        blade.position.y = 3;
+        const arm = new THREE.Group(); arm.rotation.z = b*Math.PI*2/3; arm.add(blade); hub.add(arm);
+      }
+      hub.position.set(0, 16, .5); wt.add(hub);
+      wt.position.set(-40+i*30, 0, 175); g.add(wt);
+      anim((t)=>{ hub.rotation.z = t*1.5; });
+    }
+    person(g, 0x3a3a4a, 0, 6, {radius:8});
+    person(g, 0x6a7a8a, 12, 8, {radius:6});
+    person(g, 0x8a6a7a, -12, 10, {radius:7});
+    // ── 生活の営み（字幕付き） ──
+    label(g, 'ドローン配送 — 空の物流', -2, 16, 10, .9);
+    label(g, '太陽光パネル — 脱炭素社会へ', -22, 4, 16, .9);
+    label(g, '洋上風力発電 — 再生可能エネルギー', -10, 20, 170, .95);
+    // テレワーク（カフェで仕事）
+    box(g, 7, 3, 5, 0xd8e8f2, -24, 1.5, 6);
+    const desk = box(g, 1.6, .1, .8, 0xf2f2f2, -25, 1.1, 9.4);
+    const lap = new THREE.Mesh(new THREE.PlaneGeometry(.5,.35), new THREE.MeshBasicMaterial({ color: 0x9fd8ff }));
+    lap.position.set(-25, 1.4, 9.3); g.add(lap);
+    sitter(g, 0x3a3a4a, -25, 10.4, Math.PI);
+    label(g, 'テレワーク — 働き方が変わる', -25, 4.4, 8, .9);
+    // AIロボット
+    const robo = new THREE.Group();
+    box(robo, .8, 1.0, .6, 0xe8ecf2, 0, 1.3, 0);
+    sph(robo, .32, 0xd8e8f2, 0, 2.1, 0);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(.5,.14), new THREE.MeshBasicMaterial({ color: 0x2a8ac0 }));
+    face.position.set(0, 2.12, .32); robo.add(face);
+    robo.position.set(6, 0, 12); g.add(robo);
+    anim((t)=>{ robo.position.x = 6 + Math.sin(t*.6)*5; robo.rotation.y = Math.cos(t*.6)>0? Math.PI/2 : -Math.PI/2; });
+    label(g, 'AI・ロボットと共に働く（生成AI時代）', 6, 3.8, 12, .9);
+    // キッチンカー
+    const kc = new THREE.Group();
+    box(kc, 3.2, 1.8, 1.6, 0xf2e2c8, 0, 1.4, 0);
+    const kw1 = cyl(kc, .45,.45,.3, 0x22222a, -1, .45, .85); kw1.rotation.x = Math.PI/2;
+    const kw2 = cyl(kc, .45,.45,.3, 0x22222a, 1, .45, .85); kw2.rotation.x = Math.PI/2;
+    kc.position.set(16, 0, 14); g.add(kc);
+    label(g, 'キッチンカーとキャッシュレス決済', 16, 4.2, 14, .85);
+  }
+}
+];
+
+/* ============================================================
+   人物列伝（各時代の代表人物）
+============================================================ */
+const PEOPLE = {
+  yayoi: [
+    ['卑弥呼','?〜247/248年頃','邪馬台国の女王。倭国大乱を収めるため約30国に共立され、239年に魏へ遣使し「親魏倭王」の称号と金印を得た（『魏志』倭人伝）']
+  ],
+  kofun: [
+    ['ワカタケル大王（雄略天皇）','5世紀後半','稲荷山古墳鉄剣（埼玉・115文字銘・国宝）と江田船山古墳大刀（熊本）に名が刻まれ、王権が関東から九州まで及んだことを実証。倭王「武」に比定される']
+  ],
+  asuka: [
+    ['推古天皇','554〜628年','日本初の女帝（593年即位）。以後、持統・元明など8人10代の女性天皇が古代国家を導いた'],
+    ['聖徳太子（厩戸皇子）','574〜622年','冠位十二階・憲法十七条を定め、遣隋使で大陸文化を導入。「和を以て貴しとなす」'],
+    ['天武天皇','?〜686年','壬申の乱に勝利し、律令・史書編纂・都城建設を強力に推進した']
+  ],
+  nara: [
+    ['聖武天皇','701〜756年','疫病と反乱の国難に大仏造立と国分寺建立で応えた'],
+    ['行基','668〜749年','民衆への布教と橋・池などの社会事業を行い、大仏造立に協力して日本初の大僧正に']
+  ],
+  heian: [
+    ['紫式部','973頃〜1014年頃','『源氏物語』54帖 — 世界最古級の長編小説を残した'],
+    ['藤原道長','966〜1028年','摂関政治の全盛を極めた。「この世をば わが世とぞ思ふ 望月の…」'],
+    ['平清盛','1118〜1181年','武士として初めて太政大臣に。日宋貿易で富を築いた']
+  ],
+  kamakura: [
+    ['源頼朝','1147〜1199年','日本初の本格的武家政権・鎌倉幕府を樹立'],
+    ['北条政子','1157〜1225年','「尼将軍」。承久の乱の際、演説で御家人を結束させ幕府を守った'],
+    ['北条時宗','1251〜1284年','二度の元寇を退けた若き執権（文永の役時23歳）'],
+    ['親鸞','1173〜1263年','浄土真宗を開き、悪人正機の教えで民衆を救った']
+  ],
+  muromachi: [
+    ['足利義満','1358〜1408年','南北朝合一・金閣造営・勘合貿易 — 室町幕府の全盛期'],
+    ['雪舟','1420〜1506年頃','明に渡り水墨画を学び、日本独自の画風を大成']
+  ],
+  azuchi: [
+    ['織田信長','1534〜1582年','楽市楽座・鉄砲の大量運用で旧秩序を打破。本能寺に散る'],
+    ['豊臣秀吉','1537〜1598年','農民から天下人へ。検地と刀狩で近世社会を設計'],
+    ['千利休','1522〜1591年','侘び茶を大成。茶の湯を「総合芸術」に高めた']
+  ],
+  edo: [
+    ['徳川家康','1543〜1616年','関ヶ原に勝利し、265年続く平和の礎を築いた'],
+    ['葛飾北斎','1760〜1849年','『冨嶽三十六景』— ゴッホら印象派にも影響を与えた浮世絵師'],
+    ['杉田玄白','1733〜1817年','『解体新書』を翻訳出版し、蘭学（西洋科学）の扉を開いた']
+  ],
+  meiji: [
+    ['渋沢栄一','1840〜1931年','約500社の設立に関与した「日本資本主義の父」'],
+    ['福澤諭吉','1835〜1901年','『学問のすゝめ』と慶應義塾 — 独立自尊の精神を広めた'],
+    ['津田梅子','1864〜1929年','6歳で渡米した最初期の女子留学生。女子高等教育を切り拓いた']
+  ],
+  taisho: [
+    ['平塚らいてう','1886〜1971年','「元始、女性は太陽であった」— 雑誌『青鞜』で女性解放を先導'],
+    ['野口英世','1876〜1928年','黄熱病研究に生涯を捧げた世界的細菌学者']
+  ],
+  showa: [
+    ['湯川秀樹','1907〜1981年','中間子論で日本初のノーベル賞（1949年物理学賞）— 敗戦国民に希望を与えた'],
+    ['本田宗一郎','1906〜1991年','町工場から世界のHONDAへ — 戦後ものづくりの象徴'],
+    ['手塚治虫','1928〜1989年','ストーリーマンガを開拓し、日本のマンガ・アニメ文化の礎を築いた']
+  ],
+  heisei: [
+    ['吉野彰','1948年〜','リチウムイオン電池を開発（2019年ノーベル化学賞）— スマホ・EV時代を可能にした'],
+    ['宮崎駿','1941年〜','スタジオジブリ作品でアニメーションを世界的芸術に高めた']
+  ],
+  reiwa: [
+    ['大谷翔平','1994年〜','投打二刀流でMLBの歴史を塗り替え続ける国民的スター'],
+    ['坂口志文','1951年〜','制御性T細胞の発見で2025年ノーベル生理学・医学賞 — 免疫学に新地平']
+  ]
+};
+
+/* ============================================================
+   年表イベント（再生・スクラブ中にティッカー表示）
+============================================================ */
+const EVENTS = {
+  jomon: [[-14000,'土器の使用が始まる（世界最古級）'],[-9000,'定住化が進む'],[-5000,'縄文海進ピーク — 海面が今より2〜3m高い'],[-3700,'三内丸山の大集落が栄える'],[-2200,'寒冷化で人口が減少']],
+  yayoi: [[-900,'九州北部で水田稲作が始まる'],[-400,'稲作が本州へ広がる'],[57,'倭の奴国王が後漢から金印を授かる'],[180,'倭国大乱'],[239,'卑弥呼が魏へ遣使']],
+  kofun: [[250,'前方後円墳が出現'],[391,'倭軍が高句麗と交戦（好太王碑）'],[471,'稲荷山鉄剣の「辛亥年」— ワカタケル大王'],[527,'磐井の乱'],[538,'仏教公伝（552年説も）']],
+  asuka: [[593,'聖徳太子が摂政に'],[604,'憲法十七条'],[645,'大化の改新'],[663,'白村江の戦いで大敗'],[672,'壬申の乱'],[701,'大宝律令 — 国号「日本」']],
+  nara: [[710,'平城京遷都'],[720,'日本書紀が完成'],[735,'天然痘が大流行（〜737）'],[743,'墾田永年私財法・大仏造立の詔'],[752,'東大寺大仏の開眼供養']],
+  heian: [[794,'平安京遷都'],[869,'貞観地震 — 同年、疫病退散を祈る祇園御霊会（祇園祭の起源）'],[894,'遣唐使の停止'],[939,'平将門・藤原純友の乱'],[1016,'藤原道長が摂政に'],[1086,'白河院政が始まる'],[1156,'保元の乱'],[1185,'壇ノ浦で平家滅亡']],
+  kamakura: [[1192,'頼朝が征夷大将軍に'],[1221,'承久の乱'],[1274,'文永の役（元寇）'],[1281,'弘安の役（元寇）'],[1297,'永仁の徳政令'],[1333,'鎌倉幕府滅亡']],
+  muromachi: [[1336,'室町幕府成立・南北朝分裂'],[1392,'南北朝合一'],[1428,'正長の土一揆'],[1429,'尚巴志が琉球王国を統一'],[1457,'コシャマインの戦い'],[1467,'応仁の乱（〜77）'],[1543,'鉄砲伝来'],[1549,'キリスト教伝来'],[1560,'桶狭間の戦い'],[1561,'第四次川中島の戦い']],
+  azuchi: [[1575,'長篠の戦い'],[1582,'本能寺の変・太閤検地開始'],[1588,'刀狩令'],[1590,'秀吉が全国統一'],[1592,'文禄の役'],[1600,'関ヶ原の戦い']],
+  edo: [[1609,'薩摩の琉球侵攻'],[1615,'大坂夏の陣'],[1637,'島原・天草一揆'],[1669,'シャクシャインの戦い'],[1671,'河村瑞賢が東廻り航路を整備'],[1707,'宝永地震・富士山宝永噴火'],[1730,'堂島米会所を公認'],[1782,'天明の飢饉（〜88）'],[1853,'ペリー来航'],[1855,'安政江戸地震'],[1867,'大政奉還']],
+  meiji: [[1868,'明治維新'],[1872,'鉄道開業・学制・富岡製糸場'],[1877,'西南戦争'],[1879,'琉球処分 — 沖縄県設置'],[1889,'大日本帝国憲法発布'],[1894,'日清戦争（〜95）'],[1904,'日露戦争（〜05）'],[1906,'鉄道国有法'],[1911,'関税自主権を回復']],
+  taisho: [[1914,'第一次世界大戦に参戦'],[1918,'米騒動・スペイン風邪流行'],[1923,'関東大震災'],[1925,'普通選挙法・ラジオ放送開始']],
+  showa: [[1931,'満州事変'],[1937,'日中戦争開始'],[1941,'真珠湾攻撃'],[1942,'ミッドウェー海戦'],[1945,'東京大空襲・沖縄戦・原爆投下・終戦'],[1946,'日本国憲法公布'],[1951,'サンフランシスコ平和条約調印 — 翌年主権回復'],[1953,'テレビ本放送開始（NHK・日本テレビ）'],[1956,'国連加盟'],[1964,'東京五輪・新幹線開業'],[1968,'GNP世界2位'],[1972,'沖縄返還'],[1973,'石油危機'],[1986,'バブル景気始まる']],
+  heisei: [[1989,'消費税導入'],[1991,'バブル崩壊'],[1993,'姫路城・法隆寺が日本初の世界遺産に'],[1995,'阪神・淡路大震災'],[1997,'ハイブリッド車プリウス発売'],[1999,'iモード登場'],[2008,'iPhone上陸・人口減少へ'],[2011,'東日本大震災']],
+  reiwa: [[2019,'令和改元'],[2020,'新型コロナ・パンデミック'],[2021,'東京五輪開催'],[2022,'生成AIの登場'],[2024,'能登半島地震（M7.6・最大震度7）'],[2024,'SLIM月面着陸・新紙幣発行'],[2025,'大阪・関西万博（来場者約2,557万人）'],[2025,'憲政史上初の女性首相が誕生'],[2026,'令和8年 — 現在']]
+};
+function evYearLabel(y){
+  if(y <= -1000) return `約${Math.round(-y/1000)*1000+2000}年前`;
+  if(y < 0) return `前${-y}年`;
+  return `${y}年`;
+}
+function renderTicker(eraId, year){
+  const el = document.getElementById('ticker');
+  const evs = (EVENTS[eraId] || []).filter(ev => ev[0] <= year).slice(-4);
+  const html = evs.map(ev => `<div class="tick-line"><b>${evYearLabel(ev[0])}</b> ${ev[1]}</div>`).join('');
+  if(el.dataset.h !== html){ el.innerHTML = html; el.dataset.h = html; }
+}
+
+/* ============================================================
+   タイムライン / 時代切替 / UI
+============================================================ */
+const SEG = 100;                      // 1時代 = スライダー100目盛
+const slider = document.getElementById('slider');
+slider.max = ERAS.length * SEG - 1;
+const playBtn = document.getElementById('playBtn');
+const speedSel = document.getElementById('speed');
+const fade = document.getElementById('fade');
+const bannerName = document.querySelector('#eraBanner .era-name');
+const bannerYears = document.querySelector('#eraBanner .era-years');
+const bannerNow = document.querySelector('#eraBanner .era-year-now');
+const infoPanel = document.getElementById('info');
+const eraButtonsDiv = document.getElementById('eraButtons');
+
+let eraGroup = null;
+let currentEra = -1;
+let playing = false;
+
+/* 字幕ナレーション: 時代の生活・産業・戦い・課題を順に語る */
+const subtitleEl = document.getElementById('subtitle');
+let subLines = [], subIdx = 0, subTimer = null;
+function startSubtitles(e){
+  if(lang === 'en'){
+    subLines = (ERAS_EN[e.id].summary.match(/[^.]+\./g) || [ERAS_EN[e.id].summary]).map(s => ['', s.trim()]);
+  } else {
+    const tags = { life:'【生活】', industry:'【産業】', war:'【戦い】', problem:'【課題と解決】' };
+    subLines = ['life','industry','war','problem'].flatMap(k => (e.info[k]||[]).map(s => [tags[k], s]));
+  }
+  subIdx = 0;
+  clearInterval(subTimer);
+  const show = () => {
+    subtitleEl.style.opacity = 0;
+    setTimeout(() => {
+      const [tag, text] = subLines[subIdx % subLines.length];
+      subtitleEl.innerHTML = applyRuby((tag ? `<span class="tag">${tag}</span>` : '') + text);
+      subtitleEl.style.opacity = 1;
+      subIdx++;
+    }, 400);
+  };
+  show();
+  subTimer = setInterval(show, 6500);
+}
+/* 字幕バーを操作パネルの高さに合わせて配置 */
+function placeSubtitle(){
+  const c = document.getElementById('controls');
+  subtitleEl.style.bottom = (c.offsetHeight + 26) + 'px';
+}
+addEventListener('resize', placeSubtitle);
+setTimeout(placeSubtitle, 0);
+
+/* 時間帯（昼・夕・夜） */
+let todMode = 0, currentSky = ERAS[0].sky;
+const todBtn = document.getElementById('todBtn');
+function applyTimeOfDay(){
+  const base = new THREE.Color(currentSky);
+  if(todMode === 0){
+    scene.background = base; scene.fog = new THREE.Fog(base, 150, 500);
+    sun.intensity = 1.6; sun.color.set(0xfff2dd); hemi.intensity = .9;
+  } else if(todMode === 1){
+    const c = base.clone().lerp(new THREE.Color(0xff8a50), .45);
+    scene.background = c; scene.fog = new THREE.Fog(c, 140, 480);
+    sun.intensity = 1.1; sun.color.set(0xffb070); hemi.intensity = .55;
+  } else {
+    const c = base.clone().multiplyScalar(.22);
+    scene.background = c; scene.fog = new THREE.Fog(c, 120, 450);
+    sun.intensity = .25; sun.color.set(0x8899cc); hemi.intensity = .3;
+  }
+}
+todBtn.onclick = () => {
+  todMode = (todMode + 1) % 3;
+  todBtn.textContent = ['☀️','🌆','🌙'][todMode];
+  applyTimeOfDay();
+};
+
+/* 見どころカメラツアー（字幕ラベルの位置を自動巡回） */
+const tourBtn = document.getElementById('tourBtn');
+let touring = false, tourPOIs = [], tourIdx = 0, tourTimer = 0;
+function collectPOIs(){
+  tourPOIs = []; labelSprites = [];
+  if(eraGroup) eraGroup.traverse(o => { if(o.isSprite){ tourPOIs.push(o.position.clone()); labelSprites.push(o); } });
+  tourIdx = 0; tourTimer = 0;
+}
+
+/* ラベルの重なり解消: 画面上で重なる字幕はカメラに近いものだけ表示 */
+let labelSprites = [], declutterT = 9;
+const _dv1 = new THREE.Vector3(), _dv2 = new THREE.Vector3();
+function declutterLabels(){
+  if(!labelSprites.length) return;
+  const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const items = [];
+  for(const spr of labelSprites){
+    spr.getWorldPosition(_dv1);
+    const dist = _dv1.distanceTo(camera.position);
+    _dv2.copy(_dv1).project(camera);
+    if(_dv2.z > 1 || Math.abs(_dv2.x) > 1.2 || Math.abs(_dv2.y) > 1.2){ spr.visible = false; continue; }
+    const hN = spr.scale.y / (dist * halfH);
+    const wN = spr.scale.x / (dist * halfH * camera.aspect);
+    items.push({ spr, dist, sx: _dv2.x, sy: _dv2.y, wN, hN });
+  }
+  items.sort((a, b) => a.dist - b.dist);
+  const kept = [];
+  for(const it of items){
+    let ok = true;
+    for(const k of kept){
+      if(Math.abs(it.sx - k.sx) < (it.wN + k.wN) * .5 && Math.abs(it.sy - k.sy) < (it.hN + k.hN) * .55){ ok = false; break; }
+    }
+    it.spr.visible = ok;
+    if(ok) kept.push(it);
+  }
+}
+tourBtn.onclick = () => {
+  touring = !touring;
+  tourBtn.classList.toggle('active', touring);
+  if(touring) collectPOIs();
+};
+renderer.domElement.addEventListener('pointerdown', () => {
+  if(touring){ touring = false; tourBtn.classList.remove('active'); }
+});
+
+/* 環境音（Web Audioで手続き生成 — 外部音源不要）
+   前近代: 風のノイズ＋鳥のさえずり（夜は虫の音） / 近代以降: 都市の低いハム＋汽笛風 */
+const sndBtn = document.getElementById('sndBtn');
+let audioOn = false, audioCtx = null, master = null, ambientSrc = null, ambientTimer = null;
+function tone(freq0, freq1, dur, type='sine', vol=.12, delay=0){
+  const t0 = audioCtx.currentTime + delay;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq0, t0);
+  o.frequency.exponentialRampToValueAtTime(Math.max(freq1, 1), t0 + dur);
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(vol, t0 + dur*.2);
+  g.gain.exponentialRampToValueAtTime(.001, t0 + dur);
+  o.connect(g).connect(master);
+  o.start(t0); o.stop(t0 + dur + .05);
+}
+const chirp   = () => { const n = 2 + Math.floor(Math.random()*3); for(let i=0;i<n;i++) tone(2400+Math.random()*800, 3200+Math.random()*800, .12, 'sine', .07, i*.15); };
+const cricket = () => { for(let i=0;i<6;i++) tone(4200, 4400, .05, 'triangle', .045, i*.09); };
+const horn    = () => tone(220, 170, .6, 'triangle', .04);
+function rebuildAmbient(){
+  if(!audioOn || !audioCtx) return;
+  if(ambientSrc){ try{ ambientSrc.stop(); }catch(e){} ambientSrc = null; }
+  clearInterval(ambientTimer);
+  const len = audioCtx.sampleRate * 2;
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i] = Math.random()*2 - 1;
+  const src = audioCtx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const filt = audioCtx.createBiquadFilter();
+  const modern = currentEra >= 10;                 // 明治以降は都市音
+  filt.type = 'bandpass';
+  filt.frequency.value = modern ? 120 : 420;
+  filt.Q.value = modern ? .8 : .4;
+  const g = audioCtx.createGain(); g.gain.value = modern ? .5 : .28;
+  src.connect(filt); filt.connect(g); g.connect(master);
+  src.start();
+  ambientSrc = src;
+  ambientTimer = setInterval(() => {
+    if(!audioOn) return;
+    if(!modern && todMode !== 2 && Math.random() < .6) chirp();
+    if(!modern && todMode === 2 && Math.random() < .5) cricket();
+    if(modern && Math.random() < .22) horn();
+  }, 1800);
+}
+sndBtn.onclick = () => {
+  audioOn = !audioOn;
+  sndBtn.textContent = audioOn ? '🔊' : '🔇';
+  if(audioOn){
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      master = audioCtx.createGain(); master.gain.value = .25; master.connect(audioCtx.destination);
+    }
+    audioCtx.resume();
+    rebuildAmbient();
+  } else {
+    if(ambientSrc){ try{ ambientSrc.stop(); }catch(e){} ambientSrc = null; }
+    clearInterval(ambientTimer);
+    if(audioCtx) audioCtx.suspend();
+  }
+};
+
+/* ============================================================
+   言語切替（日本語 / English）
+============================================================ */
+let lang = 'ja';
+const ERAS_EN = {
+  jomon:    { name:'Jomon Period', years:'c. 14,000 BCE – 10th c. BCE', summary:'Hunter-gatherers lived in pit dwellings and made some of the world\'s oldest pottery. Long-distance trade in obsidian and jade flourished, and large settlements such as Sannai-Maruyama emerged. With little evidence of organized warfare, this sustainable way of life lasted over 10,000 years.' },
+  yayoi:    { name:'Yayoi Period', years:'c. 10th c. BCE – mid-3rd c. CE', summary:'Wet-rice farming spread from northern Kyushu, and stored rice became wealth — bringing Japan\'s first organized wars. Moated villages with watchtowers defended the harvest. Queen Himiko of Yamatai was enthroned to end decades of conflict and sent envoys to Wei China in 239.' },
+  kofun:    { name:'Kofun Period', years:'mid-3rd c. – 592', summary:'The Yamato kingship unified much of the archipelago, building huge keyhole-shaped tombs such as the 486-meter Daisen Kofun. Inscribed swords from Saitama and Kumamoto prove King Wakatakeru\'s reach. Genome studies published in 2021 show that a third wave of East Asian migrants in this period completed the tripartite ancestry of the modern Japanese.' },
+  asuka:    { name:'Asuka Period', years:'592–710', summary:'Buddhism took root and Prince Shotoku issued the Seventeen-Article Constitution. After defeat at the Battle of Baekgang in 663, Japan rapidly built a centralized legal state. The Taiho Code of 701 established the country name Nihon.' },
+  nara:     { name:'Nara Period', years:'710–794', summary:'Heijo-kyo, a planned capital of about 100,000 people, was modeled on Tang China\'s Chang\'an. A devastating smallpox epidemic in 735-737 killed a quarter or more of the population. Emperor Shomu answered the crisis with the Great Buddha of Todai-ji.' },
+  heian:    { name:'Heian Period', years:'794–1185', summary:'Court aristocrats in Kyoto created classics such as The Tale of Genji using the new kana script. The Jogan earthquake and tsunami of 869 was recorded in official chronicles. As the legal state weakened, samurai rose in the provinces, and the Genpei War of 1180-85 ended aristocratic rule.' },
+  kamakura: { name:'Kamakura Period', years:'1185–1333', summary:'Minamoto no Yoritomo founded Japan\'s first warrior government. Samurai repelled the Mongol invasions of 1274 and 1281 — some 4,400 ships and 140,000 men, the largest armada of its age. Unrewarded vassals\' discontent eventually toppled the shogunate.' },
+  muromachi:{ name:'Muromachi Period', years:'1336–1573', summary:'The Ashikaga shoguns presided over the birth of Noh theater, the tea ceremony, and Zen gardens. In the south, the Ryukyu Kingdom (unified 1429) thrived on maritime trade, while Ainu and Japanese traders clashed in the north. After the Onin War of 1467-77 burned Kyoto, the country fell into a century of Warring States, and villages learned to govern themselves.' },
+  azuchi:   { name:'Azuchi-Momoyama', years:'1573–1603', summary:'Oda Nobunaga and Toyotomi Hideyoshi reunified Japan with muskets, free markets, and grand castles. Hideyoshi\'s land surveys and sword hunt disarmed society. The decisive Battle of Sekigahara in 1600 opened the way to lasting peace.' },
+  edo:      { name:'Edo Period', years:'1603–1868', summary:'Under Tokugawa rule, Edo grew into the world\'s largest city of over one million. Terakoya schools spread literacy, ukiyo-e prints and kabuki entertained commoners, and the Dojima Rice Exchange of 1730 pioneered organized futures trading. Perry\'s Black Ships in 1853 ended two centuries of seclusion.' },
+  meiji:    { name:'Meiji Era', years:'1868–1912', summary:'Japan transformed from a feudal society into an industrial state within four decades — railways, factories, universal schooling, and a constitution. Victories over China and Russia made it a world power. Unequal treaties were revised through patient diplomacy by 1911.' },
+  taisho:   { name:'Taisho Era', years:'1912–1926', summary:'Party politics and universal male suffrage advanced Taisho Democracy, while cafes, movies, and radio created urban mass culture. The Great Kanto Earthquake of 1923 killed about 105,000 people. Goto Shinpei\'s reconstruction plan shaped the Tokyo we know today.' },
+  showa:    { name:'Showa Era', years:'1926–1989', summary:'Militarism led to the Pacific War and the atomic bombings of Hiroshima and Nagasaki, and about 3.1 million Japanese died. Sovereignty was restored by the San Francisco Peace Treaty in 1952. From the ashes, Japan achieved miracle growth — bullet trains, world-leading industry, and the world\'s second-largest economy by 1968. Pollution crises were answered with world-class environmental technology.' },
+  heisei:   { name:'Heisei Era', years:'1989–2019', summary:'After the bubble burst, Japan pioneered mobile internet, hybrid cars, and lithium-ion batteries, while anime and games became global soft power. The Kobe earthquake of 1995 and the Tohoku earthquake of 2011 spurred world-class disaster technology and a culture of volunteerism.' },
+  reiwa:    { name:'Reiwa Era', years:'2019–2026 (Reiwa 8)', summary:'The COVID-19 pandemic accelerated a digital shift, and generative AI is reshaping work and learning. Expo 2025 in Osaka drew about 25.6 million visitors, and Japan\'s first female prime minister took office in October 2025. Facing population decline, Japan bets on robotics, semiconductors, and space. After 16,000 years, the story continues.' }
+};
+function playLabel(){
+  return playing ? (lang==='en' ? '⏸ Pause' : '⏸ 停止') : (lang==='en' ? '▶ Play' : '▶ 再生');
+}
+function renderPanel(e){
+  if(lang === 'en'){
+    const en = ERAS_EN[e.id];
+    infoPanel.innerHTML = `
+      <h2>${en.name}</h2>
+      <div class="pop">${en.years}</div>
+      <p style="margin-top:8px">${en.summary}</p>
+      <div class="pop">Dates and figures follow mainstream scholarship; alternative theories exist. Detailed sections are available in Japanese (JA).</div>`;
+    return;
+  }
+  infoPanel.innerHTML = `
+      <h2>${e.name}</h2>
+      <h3>👣 人々の生活</h3><ul>${e.info.life.map(s=>`<li>${s}</li>`).join('')}</ul>
+      <h3>🏭 産業の発展</h3><ul>${e.info.industry.map(s=>`<li>${s}</li>`).join('')}</ul>
+      <h3>⚔️ 戦いの歴史</h3><ul>${e.info.war.map(s=>`<li>${s}</li>`).join('')}</ul>
+      ${e.info.problem ? `<h3>💡 課題と解決</h3><ul>${e.info.problem.map(s=>`<li>${s}</li>`).join('')}</ul>` : ''}
+      ${PEOPLE[e.id] ? `<h3>👤 人物列伝</h3><ul>${PEOPLE[e.id].map(p=>`<li><b>${p[0]}</b>（${p[1]}）— ${p[2]}</li>`).join('')}</ul>` : ''}
+      <div class="pop">👥 人口: ${e.pop}</div>
+      <div class="pop">※年代・数値には諸説があります。主要な学説・公的資料に基づいています。</div>`;
+  infoPanel.innerHTML = applyRuby(infoPanel.innerHTML);
+}
+const langBtn = document.getElementById('langBtn');
+langBtn.onclick = () => {
+  lang = lang === 'ja' ? 'en' : 'ja';
+  langBtn.textContent = lang === 'ja' ? 'EN' : 'JA';
+  document.querySelector('#title h1').textContent = lang === 'en' ? 'History of Japan — 3D Simulation' : '日本の歴史 3Dシミュレーション';
+  document.querySelector('#title p').textContent = lang === 'en'
+    ? 'Jomon (c. 14,000 BCE) → Reiwa 8 (2026) | Life · Industry · Conflict'
+    : '縄文時代（約16,000年前）→ 令和8年（2026）｜生活・産業・戦い';
+  [...eraButtonsDiv.children].forEach((b, i) => {
+    b.textContent = lang === 'en' ? ERAS_EN[ERAS[i].id].name.replace(' Period','').replace(' Era','') : ERAS[i].name.replace('（戦国含む）','');
+  });
+  playBtn.textContent = playLabel();
+  const e = ERAS[currentEra];
+  bannerName.textContent = lang === 'en' ? ERAS_EN[e.id].name : e.name;
+  bannerYears.textContent = lang === 'en' ? ERAS_EN[e.id].years : e.years;
+  renderPanel(e);
+  startSubtitles(e);
+  onSlider();
+};
+
+/* ふりがなモード（子ども向け・日本語のみ） */
+let rubyOn = false;
+const RUBY = {
+  '竪穴住居':'たてあなじゅうきょ','貝塚':'かいづか','縄文海進':'じょうもんかいしん','環濠集落':'かんごうしゅうらく',
+  '高床倉庫':'たかゆかそうこ','卑弥呼':'ひみこ','前方後円墳':'ぜんぽうこうえんふん','埴輪':'はにわ','須恵器':'すえき',
+  '渡来人':'とらいじん','冠位十二階':'かんいじゅうにかい','遣隋使':'けんずいし','遣唐使':'けんとうし',
+  '大宝律令':'たいほうりつりょう','漏刻':'ろうこく','墾田永年私財法':'こんでんえいねんしざいほう','万葉集':'まんようしゅう',
+  '摂関政治':'せっかんせいじ','御霊会':'ごりょうえ','寝殿造':'しんでんづくり','徳政令':'とくせいれい','惣村':'そうそん',
+  '書院造':'しょいんづくり','下剋上':'げこくじょう','勘合貿易':'かんごうぼうえき','楽市楽座':'らくいちらくざ',
+  '太閤検地':'たいこうけんち','刀狩':'かたながり','参勤交代':'さんきんこうたい','寺子屋':'てらこや','浮世絵':'うきよえ',
+  '瓦版':'かわらばん','勧進相撲':'かんじんずもう','殖産興業':'しょくさんこうぎょう','廃仏毀釈':'はいぶつきしゃく',
+  '文明開化':'ぶんめいかいか','財閥':'ざいばつ'
+};
+const RUBY_SORTED = Object.entries(RUBY).sort((a,b) => b[0].length - a[0].length);
+function applyRuby(html){
+  if(!rubyOn || lang === 'en') return html;
+  for(const [k, r] of RUBY_SORTED){
+    html = html.split(`<ruby>${k}`).join(` ${k}`);   // 既にルビ化済みを保護
+    html = html.split(k).join(`<ruby>${k}<rt>${r}</rt></ruby>`);
+  }
+  return html;
+}
+const rubyBtn = document.getElementById('rubyBtn');
+rubyBtn.onclick = () => {
+  rubyOn = !rubyOn;
+  rubyBtn.classList.toggle('active', rubyOn);
+  const e = ERAS[currentEra];
+  renderPanel(e);
+  startSubtitles(e);
+};
+
+ERAS.forEach((e, i) => {
+  const b = document.createElement('button');
+  b.textContent = e.name.replace('（戦国含む）','');
+  b.onclick = () => { slider.value = i*SEG; onSlider(); };
+  eraButtonsDiv.appendChild(b);
+});
+
+function yearLabel(y){
+  if(lang === 'en'){
+    if(y <= -1000) return `~${Math.round(-y/1000)*1000+2000} years ago`;
+    if(y < 0) return `${-y} BCE`;
+    return `${y} CE`;
+  }
+  if(y <= -1000) return `約${Math.round(-y/1000)*1000+2000}年前`;
+  if(y < 0) return `紀元前${-y}年`;
+  return `西暦${y}年`;
+}
+
+function setEra(i){
+  if(i === currentEra) return;
+  currentEra = i;
+  const e = ERAS[i];
+  fade.style.opacity = 1;
+  setTimeout(() => {
+    if(eraGroup){
+      scene.remove(eraGroup);
+      eraGroup.traverse(o => { if(o.geometry) o.geometry.dispose(); });
+    }
+    animated = [];
+    eraGroup = new THREE.Group();
+    e.build(eraGroup);
+    scene.add(eraGroup);
+    currentSky = e.sky;
+    applyTimeOfDay();
+    collectPOIs();
+    if(audioOn) rebuildAmbient();
+    bannerName.textContent = lang === 'en' ? ERAS_EN[e.id].name : e.name;
+    bannerYears.textContent = lang === 'en' ? ERAS_EN[e.id].years : e.years;
+    renderPanel(e);
+    [...eraButtonsDiv.children].forEach((b,bi)=>b.classList.toggle('active', bi===i));
+    startSubtitles(e);
+    fade.style.opacity = 0;
+  }, 360);
+}
+
+function onSlider(){
+  const v = +slider.value;
+  const i = Math.min(ERAS.length-1, Math.floor(v/SEG));
+  const frac = (v - i*SEG) / SEG;
+  const e = ERAS[i];
+  const year = Math.round(e.y0 + (e.y1 - e.y0) * frac);
+  bannerNow.textContent = yearLabel(year);
+  renderTicker(e.id, year);
+  setEra(i);
+}
+slider.addEventListener('input', onSlider);
+
+playBtn.onclick = () => {
+  playing = !playing;
+  playBtn.textContent = playLabel();
+};
+
+const infoToggle = document.getElementById('infoToggle');
+if(innerWidth < 760){
+  infoPanel.style.display = 'none';
+  infoToggle.style.display = 'block';
+  infoToggle.onclick = () => {
+    const show = infoPanel.style.display === 'none';
+    infoPanel.style.display = show ? 'block' : 'none';
+    infoToggle.textContent = show ? '解説を隠す' : '解説を表示';
+  };
+}
+
+/* ============================================================
+   メインループ
+============================================================ */
+const clock = new THREE.Clock();
+let acc = 0;
+/* 再生の時間進行はrAFと独立（タブが非表示でも進む） */
+let lastTick = performance.now();
+setInterval(() => {
+  const now = performance.now();
+  const dt = Math.min((now - lastTick) / 1000, 1.5);
+  lastTick = now;
+  if(!playing) return;
+  acc += dt * 6 * (+speedSel.value);   // 約16秒で1時代（1×）
+  if(acc >= 1){
+    const step = Math.floor(acc); acc -= step;
+    let v = +slider.value + step;
+    if(v > +slider.max){ v = +slider.max; playing = false; playBtn.textContent = playLabel(); }
+    slider.value = v; onSlider();
+  }
+}, 100);
+function loop(){
+  requestAnimationFrame(loop);
+  const dt = Math.min(clock.getDelta(), .1);
+  const t = clock.elapsedTime;
+  if(touring && tourPOIs.length){
+    tourTimer += dt;
+    if(tourTimer > 6){ tourTimer = 0; tourIdx = (tourIdx + 1) % tourPOIs.length; }
+    const poi = tourPOIs[tourIdx];
+    const tgt = new THREE.Vector3(poi.x, Math.max(poi.y - 2, 1.5), poi.z);
+    const dir = new THREE.Vector3(poi.x, 0, poi.z);
+    if(dir.lengthSq() < 1) dir.set(1, 0, 1);
+    dir.normalize();
+    const camPos = new THREE.Vector3(poi.x + dir.x*16, tgt.y + 9, poi.z + dir.z*16);
+    controls.target.lerp(tgt, Math.min(dt*2, 1));
+    camera.position.lerp(camPos, Math.min(dt*1.5, 1));
+  }
+  declutterT += dt;
+  if(declutterT > .25){ declutterT = 0; declutterLabels(); }
+  for(const fn of animated) fn(t, dt);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+setEra(0);
+onSlider();
+loop();
+document.getElementById('loading').style.display = 'none';
+</script>
+</body>
+</html>
