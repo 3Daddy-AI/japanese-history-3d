@@ -84,6 +84,35 @@
 <div id="fade"></div>
 <div id="loading">日本の歴史を読み込み中…</div>
 
+<script>
+  // 読み込みが異常に長い場合のフォールバック表示（CDN遅延・拡張機能によるブロック等の対策）
+  (function(){
+    var shown = false;
+    function showFallback(detail){
+      if (shown) return;
+      var el = document.getElementById('loading');
+      if (!el || el.style.display === 'none') return;
+      shown = true;
+      el.innerHTML =
+        '<div style="max-width:520px;padding:0 24px;text-align:center;line-height:1.8">' +
+        '<div style="font-size:16px;margin-bottom:12px">読み込みに時間がかかっています</div>' +
+        '<div style="font-size:12px;opacity:.8">3Dライブラリ（Three.js）の読み込みがブロックされているか、通信が不安定な可能性があります。<br>' +
+        '広告ブロッカー／拡張機能を一時的にオフにするか、別のブラウザで再度お試しください。</div>' +
+        '<div style="font-size:11px;opacity:.5;margin-top:10px">' + (detail || '') + '</div>' +
+        '<button onclick="location.reload()" style="margin-top:18px;padding:8px 20px;font-size:13px;' +
+        'background:#e8b84b;color:#1c1710;border:none;border-radius:8px;cursor:pointer;font-weight:700">再読み込み</button>' +
+        '</div>';
+    }
+    window.addEventListener('error', function(e){
+      showFallback(e && e.message ? e.message : '');
+    });
+    window.addEventListener('unhandledrejection', function(e){
+      showFallback(e && e.reason ? String(e.reason) : '');
+    });
+    setTimeout(function(){ showFallback('タイムアウト'); }, 12000);
+  })();
+</script>
+
 <div id="title">
   <h1>日本の歴史 3Dシミュレーション</h1>
   <p>縄文時代（約16,000年前）→ 令和8年（2026）｜生活・産業・戦い</p>
